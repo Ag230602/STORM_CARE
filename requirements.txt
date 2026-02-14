@@ -53,7 +53,7 @@ networkx==3.6.1
 numpy==2.4.2
 orjson==3.11.7
 packaging==25.0
-pandas==3.0.0
+pandas==2.2.3
 pillow==12.1.0
 plotly==6.5.2
 pluggy==1.6.0
@@ -103,3 +103,4 @@ urllib3==2.6.3
 watchdog==6.0.0
 xarray==2026.1.0
 xyzservices==2025.11.0
+
