@@ -158,7 +158,7 @@ Evaluated at 24h / 48h / 72h horizons.
 
 ### 🌐 Streamlit Dashboard
 
-https://unicefforcastingproject-uhdu8amdxs9qivpffsdacm.streamlit.app/
+https://stormcare-i9kz6hkvbpsydseiywfpqm.streamlit.app/
 
 ---
 
@@ -185,8 +185,8 @@ https://unicefforcastingproject-uhdu8amdxs9qivpffsdacm.streamlit.app/
 # 🚀 Getting Started
 
 ```bash
-git clone https://github.com/Ag230602/UNICEF_Forcasting_Project.git
-cd UNICEF_Forcasting_Project
+git clone https://github.com/Ag230602/STORM_CARE.git
+cd STORM_CARE
 
 python -m venv .venv
 
