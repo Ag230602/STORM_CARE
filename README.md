@@ -32,7 +32,7 @@
 Unlike traditional hurricane systems that stop at meteorological prediction, STORM-CARE translates uncertainty into impact-aware decision signals.
 
 
-
+ 
 ---
 
 # 🎯 Problem Statement
