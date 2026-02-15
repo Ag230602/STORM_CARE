@@ -31,7 +31,7 @@
 
 Unlike traditional hurricane systems that stop at meteorological prediction, STORM-CARE translates uncertainty into impact-aware decision signals.
 
-> ⚠ This is a research and demonstration system, not an operational forecasting authority. It supports human decision-making and should be interpreted alongside official meteorological advisories.
+
 
 ---
 
