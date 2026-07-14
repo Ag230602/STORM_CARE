@@ -5,4 +5,8 @@ __pycache__/
 outputs/
 logs/
 .DS_Store
+data_cache/
+aoml_download/frames_extracted/
+your-repo/data/data/
+.vscode/
 
