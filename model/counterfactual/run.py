@@ -82,23 +82,27 @@ def main() -> None:
     # ── Load WorldModel ───────────────────────────────────────────────────────
     world_model, wm_cfg_loaded = _load_or_train_world_model(wm_cfg, args.demo)
 
-    # ── Generate warm-up sequence ─────────────────────────────────────────────
+    # ── Generate N warm-up sequences (one per test storm) ────────────────────
+    N_test = 5
     T_warm = cf_cfg.n_initial_steps
     d_s    = wm_cfg_loaded.d_disaster_state
-    warm_up_seqs = _make_sequences(1, T_warm, d_s, seed=cf_cfg.seed)
-    warm_up = warm_up_seqs[0]           # (T_warm, d_s)
-    log.info(f"  Warm-up sequence: {T_warm} steps, d_state={d_s}")
+    log.info(f"  Generating {N_test} test-storm warm-up sequences …")
+    warm_up_seqs = []
+    for i in range(N_test):
+        seq = _make_sequences(1, T_warm, d_s, seed=cf_cfg.seed + i * 7)
+        warm_up_seqs.append(seq[0])          # (T_warm, d_s)
 
     # Update cf_cfg dims to match loaded model
     cf_cfg.d_disaster_state = d_s
     cf_cfg.d_latent         = wm_cfg_loaded.d_latent
 
-    # ── Run scenarios ─────────────────────────────────────────────────────────
+    # ── Run analytic counterfactuals over all test storms ────────────────────
     engine  = CounterfactualEngine(world_model, cf_cfg)
-    results = engine.compare(warm_up)
+    results = engine.compare_analytic_multi_storm(warm_up_seqs)
+    n_storms = N_test
 
     # ── Print report ──────────────────────────────────────────────────────────
-    CounterfactualEngine.print_report(results)
+    CounterfactualEngine.print_report(results, n_storms=n_storms)
 
     # ── Save metrics ──────────────────────────────────────────────────────────
     os.makedirs(cf_cfg.metrics_dir, exist_ok=True)

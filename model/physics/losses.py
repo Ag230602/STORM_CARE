@@ -77,8 +77,8 @@ class PhysicsInformedLoss(nn.Module):
         self,
         pred_delta:   Tensor,  # (B, N, C_out)  model output (field increments)
         target_delta: Tensor,  # (B, N, C_out)  ground-truth increments
-        s_t:          Tensor,  # (B, N, 7)       current  state (all channels)
-        s_tp1:        Tensor,  # (B, N, 7)       next     state (all channels)
+        s_t:          Tensor,  # (B, N, 7)       current state (all channels)
+        s_tp1:        Tensor   = None,  # kept for API compat; no longer used
     ) -> Dict[str, Tensor]:
         """
         Returns a dict of scalar tensors:
@@ -90,8 +90,12 @@ class PhysicsInformedLoss(nn.Module):
         # ── Data loss: MSE between predicted and true field increments ────────
         L_data = F.mse_loss(pred_delta, target_delta)
 
-        # ── Physics residuals on consecutive (s_t, s_tp1) snapshots ──────────
-        res    = self.phys.all_residuals(s_t, s_tp1)
+        # ── Physics residuals on the MODEL'S predicted next state ─────────────
+        # BUG that was here: all_residuals(s_t, s_tp1) used ground-truth s_tp1,
+        # so residuals were constant across epochs regardless of model updates.
+        # Fix: evaluate residuals on (s_t, s_pred) where s_pred = s_t + pred_delta.
+        s_pred = s_t + pred_delta    # model's predicted next state  (B, N, 7)
+        res    = self.phys.all_residuals(s_t, s_pred)
         R_adv  = res["adv"]
         R_diff = res["diff"]
         R_mass = res["mass"]

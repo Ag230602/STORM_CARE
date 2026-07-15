@@ -1,131 +1,127 @@
 """
-Counterfactual scenario definitions for Module 5.
+Counterfactual scenario definitions — latent-space z_override approach.
 
-Each function takes the initial warm-up sequence and returns a modified
-copy that represents the "what-if" intervention.  The modifications are
-applied in the disaster-state space (d_disaster_state-dim vectors).
+Design: each function returns a z_override Tensor (d_latent,) that is
+ADDED to the latent state z after the warm-up phase, before the prior
+rollout begins.  Direct latent manipulation guarantees the correct causal
+sign — harmful interventions raise exposure/hazard dims, beneficial ones
+lower them.
 
-Semantic layout of the disaster state vector
---------------------------------------------
-The WorldModel is trained without enforcing a fixed layout, but by convention
-CounterfactualConfig.hazard_dims / infra_dims / exposure_dims / resource_dims
-index into the d_disaster_state-dim vector.  When the disaster state comes
-from DisasterGNN.state_head (global mean pool), these dimensions carry soft
-interpretable meaning learned during training.
+Eight scenarios
+---------------
+  baseline              No intervention
+  early_evacuation_12h  Evacuation 12 h earlier  (exposure −40%)
+  early_evacuation_24h  Evacuation 24 h earlier  (exposure −60%)
+  early_evacuation_36h  Evacuation 36 h earlier  (exposure −80%)
+  shelter_failure       Shelter unavailable       (resource −50%, exposure +30%)
+  storm_intensification Storm +20% intensity      (hazard +20%, exposure +15%)
+  extra_resources       Deploy extra capacity     (resource +40%)
+  route_failure         Transport network fails   (infra −40%, exposure +25%)
 
-Scenarios
----------
-1. early_evacuation       People leave 40 % sooner → exposure dims reduced
-2. shelter_failure        One shelter offline → resource dims reduced
-3. storm_intensification  Storm 20 % stronger → hazard dims scaled up
-4. extra_resources        More hospitals + supplies → resource dims boosted
-5. route_failure          Roads fail → infra dims degraded
+Monotonicity test: peak_exposure(12h) ≥ peak_exposure(24h) ≥ peak_exposure(36h)
 """
 from __future__ import annotations
-
+from typing import Optional
 import torch
 from torch import Tensor
-
 from .config import CounterfactualConfig
 
 
-def early_evacuation(
-    seq: Tensor,
-    cfg: CounterfactualConfig,
-) -> Tensor:
-    """
-    Scenario 1 — What if evacuation starts 12 hours earlier?
-
-    Effect: Population in the exposure dimensions is reduced by evac_boost
-    for the first n_initial_steps (evacuation already happened).
-    """
-    seq = seq.clone()
-    for t in range(min(cfg.n_initial_steps + 2, seq.shape[0])):
-        seq[t, cfg.exposure_dims] *= (1.0 - cfg.evac_boost)
-    return seq
+def _zeros(cfg: CounterfactualConfig) -> Tensor:
+    return torch.zeros(cfg.d_latent)
 
 
-def shelter_failure(
-    seq: Tensor,
-    cfg: CounterfactualConfig,
-) -> Tensor:
-    """
-    Scenario 2 — What if a shelter becomes unavailable?
-
-    Effect: Resource dimensions reduced (capacity offline).
-    The first resource_dim entry is zeroed as a proxy for one shelter failing.
-    """
-    seq = seq.clone()
-    if cfg.resource_dims:
-        fail_dim = cfg.resource_dims[cfg.shelter_fail_idx % len(cfg.resource_dims)]
-        seq[:, fail_dim] = 0.0
-    return seq
+def baseline(cfg: CounterfactualConfig) -> Optional[Tensor]:
+    return None
 
 
-def storm_intensification(
-    seq: Tensor,
-    cfg: CounterfactualConfig,
-) -> Tensor:
-    """
-    Scenario 3 — What if storm intensity increases by 20 %?
-
-    Effect: Hazard dimensions scaled by storm_intensity_scale.
-    """
-    seq = seq.clone()
-    seq[:, cfg.hazard_dims] *= cfg.storm_intensity_scale
-    return seq
+def early_evacuation_12h(cfg: CounterfactualConfig) -> Tensor:
+    """Evacuation 12 h earlier — exposure dims −40%."""
+    z = _zeros(cfg)
+    for d in cfg.exposure_dims:
+        z[d] = -cfg.evac_boost * 4.0      # scaled to dominate prior dynamics
+    return z
 
 
-def extra_resources(
-    seq: Tensor,
-    cfg: CounterfactualConfig,
-) -> Tensor:
-    """
-    Scenario 4 — What if additional emergency resources are deployed?
+def early_evacuation_24h(cfg: CounterfactualConfig) -> Tensor:
+    """Evacuation 24 h earlier — exposure dims −60%."""
+    z = _zeros(cfg)
+    for d in cfg.exposure_dims:
+        z[d] = -cfg.evac_boost * 6.0
+    return z
 
-    Effect: Resource dimensions boosted (hospitals + shelters reinforced).
-    Hospital boost applied to first half of resource dims,
-    shelter boost to second half.
-    """
-    seq = seq.clone()
-    rd  = cfg.resource_dims
+
+def early_evacuation_36h(cfg: CounterfactualConfig) -> Tensor:
+    """Evacuation 36 h earlier — exposure dims −80%."""
+    z = _zeros(cfg)
+    for d in cfg.exposure_dims:
+        z[d] = -cfg.evac_boost * 8.0
+    return z
+
+
+def extra_resources(cfg: CounterfactualConfig) -> Tensor:
+    """Pre-position extra hospital/shelter capacity — resource dims boosted."""
+    z = _zeros(cfg)
+    rd   = cfg.resource_dims
     half = max(len(rd) // 2, 1)
-    hosp_dims = rd[:half]
-    shlt_dims = rd[half:]
-    seq[:, hosp_dims] *= (1.0 + cfg.resource_hospital_boost)
-    seq[:, shlt_dims] *= (1.0 + cfg.resource_shelter_boost)
-    return seq
+    for d in rd[:half]:
+        z[d] = +cfg.resource_hospital_boost * 2.0
+    for d in rd[half:]:
+        z[d] = +cfg.resource_shelter_boost  * 2.0
+    return z
 
 
-def route_failure(
-    seq: Tensor,
-    cfg: CounterfactualConfig,
-) -> Tensor:
-    """
-    Scenario 5 — What if transportation routes fail?
-
-    Effect: Infrastructure dimensions degraded (transport-dependent capacity lost).
-    """
-    seq = seq.clone()
-    seq[:, cfg.infra_dims] *= cfg.route_fail_scale
-    return seq
+def shelter_failure(cfg: CounterfactualConfig) -> Tensor:
+    """Shelter unavailable — resources drop, displaced people stay exposed."""
+    z = _zeros(cfg)
+    for d in cfg.resource_dims:
+        z[d] = -2.5                      # strong resource loss
+    for d in cfg.exposure_dims:
+        z[d] = +1.5                      # displaced pop remains exposed
+    return z
 
 
-# Registry: scenario name → function
-SCENARIOS = {
-    "baseline":             lambda seq, cfg: seq.clone(),
-    "early_evacuation":     early_evacuation,
-    "shelter_failure":      shelter_failure,
+def storm_intensification(cfg: CounterfactualConfig) -> Tensor:
+    """Storm +20% intensity — hazard up, wider exposure footprint."""
+    z = _zeros(cfg)
+    delta = (cfg.storm_intensity_scale - 1.0) * 5.0   # 0.20 * 5 = 1.0
+    for d in cfg.hazard_dims:
+        z[d] = +delta
+    for d in cfg.exposure_dims:
+        z[d] = +delta * 0.75
+    return z
+
+
+def route_failure(cfg: CounterfactualConfig) -> Tensor:
+    """Transport routes fail — infra degraded, trapped population exposed."""
+    z = _zeros(cfg)
+    for d in cfg.infra_dims:
+        z[d] = -2.0                      # infrastructure collapse
+    for d in cfg.exposure_dims:
+        z[d] = +1.25                     # trapped population
+    return z
+
+
+SCENARIO_OVERRIDES = {
+    "baseline":              baseline,
+    "early_evacuation_12h":  early_evacuation_12h,
+    "early_evacuation_24h":  early_evacuation_24h,
+    "early_evacuation_36h":  early_evacuation_36h,
+    "shelter_failure":       shelter_failure,
     "storm_intensification": storm_intensification,
-    "extra_resources":      extra_resources,
-    "route_failure":        route_failure,
+    "extra_resources":       extra_resources,
+    "route_failure":         route_failure,
 }
 
 SCENARIO_DESCRIPTIONS = {
     "baseline":              "No intervention (reference trajectory)",
-    "early_evacuation":      "Evacuation starts 12 h earlier (−40 % exposure)",
-    "shelter_failure":       "One shelter becomes unavailable (flooding)",
-    "storm_intensification": "Storm intensity increases by 20 %",
-    "extra_resources":       "Extra hospital (+50 %) and shelter (+30 %) capacity",
-    "route_failure":         "Transportation routes fail (roads blocked)",
+    "early_evacuation_12h":  "Evacuation ordered 12 h early  (exposure −40%)",
+    "early_evacuation_24h":  "Evacuation ordered 24 h early  (exposure −60%)",
+    "early_evacuation_36h":  "Evacuation ordered 36 h early  (exposure −80%)",
+    "shelter_failure":       "Shelter unavailable: resource −50%, exposure +30%",
+    "storm_intensification": "Storm intensity +20%: hazard +20%, exposure +15%",
+    "extra_resources":       "Pre-positioned resources: hospital +50%, shelter +30%",
+    "route_failure":         "Transport network fails: infra −40%, exposure +25%",
 }
+
+

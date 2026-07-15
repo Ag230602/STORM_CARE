@@ -221,10 +221,13 @@ class WorldModel(nn.Module):
         if z_override is not None:
             z = z + z_override
 
-        # Rollout (prior)
+        # Rollout (prior) — apply z_override persistently at every step
+        # to model a sustained intervention (do-operator), not just a nudge.
         preds = []
         for _ in range(n_steps):
             h, z = self.rssm.step_prior(h, z)
+            if z_override is not None:
+                z = z + z_override   # sustained causal intervention
             preds.append(self.rssm.decode(h, z))
 
         return torch.stack(preds)   # (n_steps, d_s)
