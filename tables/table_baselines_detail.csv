@@ -1,0 +1,5 @@
+model,track_km_6h,track_km_12h,track_km_24h,track_km_48h,cone_p50_6h,cone_p90_6h,cone_p50_12h,cone_p90_12h,cone_p50_24h,cone_p90_24h,cone_p50_48h,cone_p90_48h,along_err_km_6h,cross_err_km_6h,landfall_time_err_h,source
+Persistence,117.7,135.1,202.8,466.4,—,—,—,—,—,—,—,—,—,—,2.4,inference_test_metrics_summary.csv
+LSTM,3440.9,740.6,1251.6,1167.3,0.0,0.0,0.0,0.0,0.0,0.0,1.0,1.0,-1623.6,2276.1,10.0,inference_test_metrics_summary.csv
+Transformer,7820.2,2829.8,12566.2,1020.1,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,5100.7,2840.4,—,inference_test_metrics_summary.csv
+GNO+DynGNN,619.6,587.1,878.0,935.9,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,-115.2,316.7,10.0,inference_test_metrics_summary.csv

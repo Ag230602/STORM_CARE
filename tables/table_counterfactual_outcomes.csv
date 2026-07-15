@@ -1,0 +1,9 @@
+scenario,description,peak_exposure,shelter_shortfall,infra_damage_final,resource_deficit,mean_hazard,peak_exposure_pct_vs_baseline,infra_damage_pct_vs_baseline
+baseline,No intervention (reference),0.077,0.000,0.319,0.0004,0.331,0.0%,0.0%
+early_evacuation_12h,Evacuation ordered 12 h early,0.046,0.000,0.319,0.0004,0.331,-40.3%,0.0%
+early_evacuation_24h,Evacuation ordered 24 h early,0.035,0.000,0.319,0.0004,0.331,-54.5%,0.0%
+early_evacuation_36h,Evacuation ordered 36 h early,0.023,0.000,0.319,0.0004,0.331,-70.1%,0.0%
+extra_resources,"Pre-positioned resources: hospital +50%, shelter +30%",0.077,0.000,0.319,0.0005,0.331,0.0%,0.0%
+shelter_failure,"Shelter unavailable: resource −50%, exposure +30%",0.100,0.000,0.383,0.0002,0.331,+29.9%,+20.1%
+storm_intensification,"Storm intensity +20%: hazard +20%, exposure +15%",0.089,0.000,0.383,0.0004,0.397,+15.6%,+20.1%
+route_failure,"Transport network fails: infra −40%, exposure +25%",0.096,0.000,0.447,0.0002,0.331,+24.7%,+40.1%
