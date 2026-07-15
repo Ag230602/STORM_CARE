@@ -151,44 +151,44 @@ class PhysicsResiduals:
 
     # ── 3. Mass conservation ───────────────────────────────────────────────────
 
-    def mass_conservation(self, s_t: Tensor) -> Tensor:
+    def mass_conservation(self, s_t: Tensor, s_tp1: Tensor) -> Tensor:
         """
-        Incompressibility: ∇·u = ∂u/∂x + ∂v/∂y = 0.
+        Incompressibility: the PREDICTED next state must have ∇·u = 0.
+        Evaluating on s_tp1 (model prediction) means this residual
+        changes as model weights update, providing a real training signal.
 
-        Returns: MSE(∇·u).
+        Returns: MSE(∇·u_predicted).
         """
-        u = s_t[..., 0:1]
-        v = s_t[..., 1:2]
+        u = s_tp1[..., 0:1]   # predicted zonal wind
+        v = s_tp1[..., 1:2]   # predicted meridional wind
         div_uv = self.ops.divergence(u, v)
         return div_uv.pow(2).mean()
 
     # ── 4. Wind-pressure (gradient wind balance) ───────────────────────────────
 
-    def wind_pressure(self, s_t: Tensor) -> Tensor:
+    def wind_pressure(self, s_t: Tensor, s_tp1: Tensor) -> Tensor:
         """
-        Gradient wind balance: V²/r + f V + (1/ρ) ∂p/∂r = 0.
+        Gradient wind balance on the PREDICTED next state:
+          V²/r + f V + (1/ρ) ∂p/∂r = 0
+        Evaluating on s_tp1 provides a training signal that changes
+        as the model learns to predict physically consistent wind-pressure.
 
-        V = √(u² + v²)   (wind speed)
-        r = distance from domain centre (proxy for storm centre) in metres.
-        ∂p/∂r = radial component of pressure gradient (wind direction).
-
-        Returns: MSE(R_wp).
+        Returns: MSE(R_wp on predicted state).
         """
-        u  = s_t[..., 0:1];  v  = s_t[..., 1:2]
-        p  = s_t[..., 6:7]                         # MSLP proxy
+        u  = s_tp1[..., 0:1];  v  = s_tp1[..., 1:2]   # predicted winds
+        p  = s_tp1[..., 6:7]                            # predicted MSLP
 
         V  = (u.pow(2) + v.pow(2)).sqrt() + 1e-6   # (B, N, 1)
 
         # Radial pressure gradient projected onto wind direction
         dp_dr = self.ops.radial_gradient(p, u, v)  # (B, N, 1)
 
-        # Physical radius from domain centre: use normalised coords, scale to m
-        # Domain spans ±domain_radius_deg degrees → ±domain_radius * 111 km
+        # Physical radius from domain centre, scaled to metres
         domain_m  = self.cfg.domain_radius_deg * 111_000.0
         coords    = self.ops.graph.x_coords                    # (N, 2) in [-1,1]
         r_norm    = coords.norm(dim=-1)                        # (N,)  in [0, √2]
         r_phys    = (r_norm * domain_m).clamp(min=1e4)        # (N,) in metres
-        r         = r_phys.view(1, -1, 1).to(s_t.device)     # (1, N, 1)
+        r         = r_phys.view(1, -1, 1).to(s_tp1.device)   # (1, N, 1)
 
         R_wp = V.pow(2) / r + self.f * V + (1.0 / self.rho) * dp_dr
         return R_wp.pow(2).mean()
@@ -252,8 +252,8 @@ class PhysicsResiduals:
         return {
             "adv":  self.advection(s_t, s_tp1),
             "diff": self.diffusion(s_t, s_tp1),
-            "mass": self.mass_conservation(s_t),
-            "wp":   self.wind_pressure(s_t),
+            "mass": self.mass_conservation(s_t, s_tp1),   # predicted state
+            "wp":   self.wind_pressure(s_t, s_tp1),       # predicted state
             "cont": self.temporal_continuity(s_t, s_tp1),
             "nrg":  self.energy(s_t, s_tp1),
         }
