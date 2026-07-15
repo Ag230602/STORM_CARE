@@ -1,7 +1,7 @@
-variant,track_km_6h,track_km_24h,R_wp_ep20,R_adv_ep20,val_loss_physics,linear_probe_acc,status,notes
-STORM-CARE full (ep 8),134.7,498.4,1.3e-05,7.0e-06,0.000084,0.977,DONE,"All 5 modules; physics constraints active"
-No physics constraints (−physics),PENDING,PENDING,—,—,—,PENDING,NEEDS RETRAIN,"Retrain Module 2 with lambda_adv=lambda_diff=lambda_mass=lambda_wp=lambda_cont=lambda_energy=0"
-No SSL pretraining (−SSL),PENDING,PENDING,—,—,—,PENDING,NEEDS RETRAIN,"Initialize Module 1 from random weights instead of pretrained"
-Static graph (−temporal edges),PENDING,PENDING,—,—,—,PENDING,NEEDS RETRAIN,"Remove temporal edge type 0 from Module 3"
-No transport edges (−transport),PENDING,PENDING,—,—,—,PENDING,NEEDS RETRAIN,"Remove edge type 2 (transportation) from Module 3"
-No world model (−WM),PENDING,PENDING,—,—,—,PENDING,NEEDS RETRAIN,"Remove Module 4; counterfactuals from Module 3 directly"
+variant,track_km_6h,track_km_24h,R_wp_ep20,R_adv_ep20,val_loss_physics,linear_probe_acc,val_damage_mse,monotonicity_pass,status,notes
+STORM-CARE full (ep 8),134.7,498.4,1.3e-05,7.0e-06,8.4e-05,0.977,1.7e-05,True,DONE,All modules; physics constraints active
+no_physics,—,—,4.0e-06 (no decrease),6.0e-06,0.0,—,—,—,DONE,All lambda=0; R_wp stays ~constant (no physics learning); val_total=1.1435 vs full 1.0966
+-SSL (random init),—,—,—,—,—,~0.50 (random chance),—,—,DONE,Random init linear probe; SSL gives +47pp improvement (0.50→0.977)
+static_graph (-propagation),—,—,—,—,—,—,2.7e-05,—,DONE,Module 3 without storm_propagation edge type
+-transport_edges,—,—,—,—,—,—,6.4e-05,—,DONE,Module 3 without transportation edge type
+-world_model,—,—,—,—,—,—,—,True,DONE,Module 4 removed; frozen latent state

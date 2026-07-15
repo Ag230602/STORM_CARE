@@ -1,0 +1,4 @@
+partition,n_storms,year_min,year_max,boundary
+train,201,1995,2006,1995–2006
+val,45,2007,2009,2007–2009
+test,273,2010,2024,2010+

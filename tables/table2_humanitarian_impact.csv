@@ -1,13 +1,5 @@
-metric,STORM-CARE-M3 (demo),RF_baseline,XGBoost_baseline,MLP_baseline,source,notes
-val_damage_mse,1.7e-05,PENDING,PENDING,PENDING,metrics/disaster_graph/train_log.csv,"Training diagnostic only; cannot go in paper as-is"
-exposed_children_MAPE,PENDING,PENDING,PENDING,PENDING,—,"Needs eval script over M3 checkpoint (no retraining)"
-school_disruption_AUC,PENDING,PENDING,PENDING,PENDING,—,"Needs eval script: binary disrupted/not from damage_score > 0.5"
-hospital_access_MAE,PENDING,PENDING,PENDING,PENDING,—,"Needs eval script: MAE between predicted and true accessibility"
-recovery_priority_spearman_rho,PENDING,PENDING,PENDING,PENDING,—,"Needs eval script: Spearman correlation on ranked priority list"
-demo_exposed_children_est,6637,—,—,—,model/disaster_graph/train.py,"Demo output at last step scenario 1; not a test-set number"
-demo_school_disruption_pct,0.0%,—,—,—,model/disaster_graph/train.py,"0% at early storm stage (demo)"
-demo_hospital_access_avg,0.308,—,—,—,model/disaster_graph/train.py,"1=fully accessible"
-demo_shelter_demand_avg,0.376,—,—,—,model/disaster_graph/train.py,"1=at capacity"
-demo_recovery_top1,School-2,—,—,—,model/disaster_graph/train.py,"Highest priority node for recovery resources"
-demo_recovery_top2,School-3,—,—,—,model/disaster_graph/train.py,
-demo_recovery_top3,Hospital-0,—,—,—,model/disaster_graph/train.py,
+metric,STORM-CARE-M3,RF_baseline,MLP_baseline,units,notes
+exposed_children_MAPE,358.0832,0.0742,35.5931,%,Lower is better
+school_disruption_AUC,nan,—,—,"[0,1]",Higher is better; ROC-AUC for binary disrupted/not
+hospital_accessibility_MAE,0.3109,0.0,0.0454,km,Lower is better
+recovery_priority_spearman,-0.0644,—,—,"[-1,1]",Higher is better; Spearman ρ on ranked priority list

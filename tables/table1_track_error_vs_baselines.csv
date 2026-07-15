@@ -1,8 +1,9 @@
-model,track_km_6h,track_km_12h,track_km_24h,track_km_48h,track_km_72h,track_km_120h,notes
-Persistence,117.7,135.1,202.8,466.4,—,—,No learning; last-observed position held constant
-CLIPER (climatology),—,—,—,—,—,—,PENDING: ~1 day to script from NHC CLIPER coefficients
-LSTM,3440.9,740.6,1251.6,1167.3,—,—,inference_test_metrics_summary.csv; 72/120h not recorded
-Transformer,7820.2,2829.8,12566.2,1020.1,—,—,inference_test_metrics_summary.csv; high error = instability
-GNO+DynGNN,619.6,587.1,878.0,935.9,—,—,inference_test_metrics_summary.csv; strongest existing baseline
-STORM-CARE-FM (ep 8),134.7,263.4,498.4,902.3,1189.1,1466.1,foundation_eval_metrics.csv epoch 8 — best short-range ckpt
-STORM-CARE-FM (ep 4),143.7,272.1,506.7,885.1,1138.0,1342.9,foundation_eval_metrics.csv epoch 4 — better 48–120h
+model,track_km_6h,track_km_12h,track_km_24h,track_km_48h,track_km_72h,track_km_120h,notes,ci95_lo_6h,ci95_hi_6h,ci95_lo_12h,ci95_hi_12h,ci95_lo_24h,ci95_hi_24h,ci95_lo_48h,ci95_hi_48h,ci95_lo_72h,ci95_hi_72h,ci95_lo_120h,ci95_hi_120h
+Persistence,35.8,88.5,224.5,558.2,937.6,1750.3,Computed by cliper_baseline.py from TEST partition,35.0,36.6,86.8,90.3,220.2,228.9,547.9,568.6,919.2,955.7,1712.7,1786.6
+CLIPER (climatology+persistence),43.7,95.7,219.9,512.2,837.3,1543.2,Computed by cliper_baseline.py from TEST partition,42.9,44.5,94.1,97.5,215.7,224.1,503.0,522.0,820.9,854.3,1510.2,1576.1
+CLIPER (climatology),—,—,—,—,—,—,PENDING: ~1 day to script from NHC CLIPER coefficients,,,,,,,,,,,,
+LSTM,3440.9,740.6,1251.6,1167.3,—,—,inference_test_metrics_summary.csv; 72/120h not recorded,,,,,,,,,,,,
+Transformer,7820.2,2829.8,12566.2,1020.1,—,—,inference_test_metrics_summary.csv; high error = instability,,,,,,,,,,,,
+GNO+DynGNN,619.6,587.1,878.0,935.9,—,—,inference_test_metrics_summary.csv; strongest existing baseline,,,,,,,,,,,,
+STORM-CARE-FM (ep 8),134.7,263.4,498.4,902.3,1189.1,1466.1,foundation_eval_metrics.csv epoch 8 — best short-range ckpt,,,,,,,,,,,,
+STORM-CARE-FM (ep 4),143.7,272.1,506.7,885.1,1138.0,1342.9,foundation_eval_metrics.csv epoch 4 — better 48–120h,,,,,,,,,,,,
