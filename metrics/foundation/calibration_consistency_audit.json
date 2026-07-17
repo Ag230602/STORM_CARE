@@ -1,0 +1,13 @@
+{
+  "selected_epoch": 2,
+  "selection_metric": "mean_track_err_km",
+  "selection_score": 1005.24854442106,
+  "source_metrics": "metrics/foundation/foundation_eval_metrics.csv",
+  "table": "tables/table_calibration_cone_coverage.csv",
+  "figures": [
+    "figures/calibration.png",
+    "figures/calibration.pdf"
+  ],
+  "issues": [],
+  "status": "PASS"
+}

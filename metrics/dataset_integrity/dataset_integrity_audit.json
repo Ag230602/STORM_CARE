@@ -1,0 +1,31 @@
+{
+  "status": "PASS",
+  "issues": [],
+  "split_map_counts": {
+    "test": 107,
+    "train": 342,
+    "val": 70
+  },
+  "baseline_case_study_counts": {
+    "test": 9,
+    "train": 27,
+    "val": 9
+  },
+  "foundation_record_counts": {
+    "train": 324,
+    "val": 76
+  },
+  "foundation_window_counts": {
+    "train": 837,
+    "val": 238
+  },
+  "prediction_rows": 36,
+  "prediction_models": [
+    "GNO+DynGNN",
+    "LSTM",
+    "Persistence",
+    "Transformer"
+  ],
+  "prediction_unique_storm_t0_windows": 9,
+  "foundation_group_overlap_count": 0
+}

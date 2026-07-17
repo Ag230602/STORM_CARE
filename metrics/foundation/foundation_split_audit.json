@@ -1,0 +1,12 @@
+{
+  "split_unit": "basin|year|storm_name",
+  "seed": 42,
+  "n_records": 400,
+  "n_groups": 325,
+  "n_train_records": 324,
+  "n_val_records": 76,
+  "n_train_groups": 260,
+  "n_val_groups": 65,
+  "storm_id_overlap": [],
+  "group_key_overlap": []
+}

@@ -1,0 +1,60 @@
+{
+  "root_causes_addressed": [
+    "exposed-children MAPE now compares predicted and true exposed-child counts, not counts versus fractions",
+    "exposed-children MAPE is computed on scenario-level peak exposure to avoid near-zero early-step denominators",
+    "school AUC is pooled across held-out school nodes instead of averaged per scenario with one-class folds",
+    "damage simulator no longer saturates all infrastructure targets to one after a single step",
+    "humanitarian heads are supervised directly during Module 3 training",
+    "train and test synthetic scenarios use disjoint seeds"
+  ],
+  "limitations": [
+    "targets are simulator-derived proxy labels, not observed disaster outcomes",
+    "metrics are valid for the synthetic demo protocol only"
+  ],
+  "train_label_stats": {
+    "n_scenarios": 50,
+    "n_steps": 400,
+    "child_total_min": 0.14574433863162994,
+    "child_total_mean": 129.40904779076575,
+    "child_total_max": 1346.86572265625,
+    "school_positive_rate": 0.0125,
+    "school_classes": [
+      0,
+      1
+    ],
+    "hospital_access_min": 0.6030925512313843,
+    "hospital_access_mean": 0.9711911211162806,
+    "hospital_access_max": 0.999987006187439,
+    "priority_min": 1.2260197301827702e-09,
+    "priority_mean": 0.013213756043147815,
+    "priority_max": 0.47901248931884766
+  },
+  "test_label_stats": {
+    "n_scenarios": 50,
+    "n_steps": 400,
+    "child_total_min": 0.04766327142715454,
+    "child_total_mean": 182.67309759084137,
+    "child_total_max": 1287.3291015625,
+    "school_positive_rate": 0.014583333333333334,
+    "school_classes": [
+      0,
+      1
+    ],
+    "hospital_access_min": 0.6859645843505859,
+    "hospital_access_mean": 0.9864973001182079,
+    "hospital_access_max": 1.0,
+    "priority_min": 4.036996015255312e-10,
+    "priority_mean": 0.011519387247695,
+    "priority_max": 0.4660479426383972
+  },
+  "model_metrics": {
+    "child_mape": 469.3962,
+    "school_auc": 0.8724,
+    "hosp_mae": 0.0256,
+    "priority_rho": -0.0212,
+    "n_eval_steps": 400,
+    "school_positive_rate": 0.0146,
+    "child_true_peak_mean": 352.6228,
+    "child_pred_peak_mean": 83.643
+  }
+}

@@ -90,6 +90,18 @@ class PhysicsResiduals:
         self.rho  = cfg.rho_air            # kg m⁻³
         self.dt   = cfg.dt_physics         # s
 
+    def _accel_scale(self) -> float:
+        # Characteristic advective acceleration V^2 / L.
+        L = max(self.cfg.grid_spacing_m, 1.0)
+        return max((self.cfg.wind_scale_ms ** 2) / L, 1e-6)
+
+    def _tendency_scale(self, value_scale: float) -> float:
+        return max(value_scale / self.dt, 1e-8)
+
+    @staticmethod
+    def _mse_norm(residual: Tensor, scale: float) -> Tensor:
+        return (residual / scale).pow(2).mean()
+
     # ── 1. Advection (momentum equation) ──────────────────────────────────────
 
     def advection(self, s_t: Tensor, s_tp1: Tensor) -> Tensor:
@@ -105,7 +117,7 @@ class PhysicsResiduals:
         Returns: mean of MSE(R_u) and MSE(R_v).
         """
         u   = s_t[..., 0:1];   v   = s_t[..., 1:2]
-        p   = s_t[..., 6:7]                          # MSLP as pressure proxy
+        p   = s_t[..., 6:7] * 100.0                  # hPa anomaly -> Pa
         u1  = s_tp1[..., 0:1]; v1  = s_tp1[..., 1:2]
 
         du_dx, du_dy = self.ops.gradient(u)
@@ -126,7 +138,8 @@ class PhysicsResiduals:
                + self.f * u
                - self.nu * lap_v)
 
-        return 0.5 * (R_u.pow(2).mean() + R_v.pow(2).mean())
+        scale = self._accel_scale()
+        return 0.5 * (self._mse_norm(R_u, scale) + self._mse_norm(R_v, scale))
 
     # ── 2. Temperature diffusion ───────────────────────────────────────────────
 
@@ -147,7 +160,8 @@ class PhysicsResiduals:
                + u * dT_dx + v * dT_dy
                - self.kap * lap_T)
 
-        return R_T.pow(2).mean()
+        scale = self._tendency_scale(self.cfg.temperature_scale_k)
+        return self._mse_norm(R_T, scale)
 
     # ── 3. Mass conservation ───────────────────────────────────────────────────
 
@@ -162,7 +176,8 @@ class PhysicsResiduals:
         u = s_tp1[..., 0:1]   # predicted zonal wind
         v = s_tp1[..., 1:2]   # predicted meridional wind
         div_uv = self.ops.divergence(u, v)
-        return div_uv.pow(2).mean()
+        scale = max(self.cfg.wind_scale_ms / self.cfg.grid_spacing_m, 1e-8)
+        return self._mse_norm(div_uv, scale)
 
     # ── 4. Wind-pressure (gradient wind balance) ───────────────────────────────
 
@@ -176,7 +191,7 @@ class PhysicsResiduals:
         Returns: MSE(R_wp on predicted state).
         """
         u  = s_tp1[..., 0:1];  v  = s_tp1[..., 1:2]   # predicted winds
-        p  = s_tp1[..., 6:7]                            # predicted MSLP
+        p  = s_tp1[..., 6:7] * 100.0                    # hPa anomaly -> Pa
 
         V  = (u.pow(2) + v.pow(2)).sqrt() + 1e-6   # (B, N, 1)
 
@@ -191,7 +206,7 @@ class PhysicsResiduals:
         r         = r_phys.view(1, -1, 1).to(s_tp1.device)   # (1, N, 1)
 
         R_wp = V.pow(2) / r + self.f * V + (1.0 / self.rho) * dp_dr
-        return R_wp.pow(2).mean()
+        return self._mse_norm(R_wp, self._accel_scale())
 
     # ── 5. Temporal continuity ─────────────────────────────────────────────────
 
@@ -200,17 +215,26 @@ class PhysicsResiduals:
         Soft constraint: the state should not change faster than physically
         plausible.
 
-        R_cont = ReLU( ‖s_{t+1} − s_t‖² / N − threshold )
+        R_cont = mean_c mean_i [ ((s_{t+1,c} - s_{t,c}) / scale_c)^2 ]
 
-        where threshold = (C · Δt)² / C_channels, C = 50 m/s.
-        Returns 0 if the change is within physical bounds.
+        This is a soft normalized-increment penalty.  The previous thresholded
+        version used (50 m/s * dt)^2, which is enormous for a 6 h step and made
+        the residual exactly zero for all realistic predictions.
         """
-        N          = s_t.shape[1]
-        C_channels = s_t.shape[2]
-        diff_sq    = (s_tp1 - s_t).pow(2).mean()
-        C_scale    = 50.0                        # m/s representative scale
-        threshold  = (C_scale * self.dt) ** 2 / C_channels
-        return torch.relu(diff_sq - threshold)
+        scales = torch.tensor(
+            [
+                self.cfg.wind_scale_ms,
+                self.cfg.wind_scale_ms,
+                self.cfg.wind_scale_ms,
+                self.cfg.wind_scale_ms,
+                self.cfg.geopotential_scale_m,
+                self.cfg.temperature_scale_k,
+                self.cfg.pressure_scale_hpa,
+            ],
+            dtype=s_t.dtype,
+            device=s_t.device,
+        ).view(1, 1, -1)
+        return ((s_tp1 - s_t) / scales).pow(2).mean()
 
     # ── 6. Kinetic-energy conservation ────────────────────────────────────────
 
@@ -232,7 +256,8 @@ class PhysicsResiduals:
         _,      dEv_dy = self.ops.gradient(E * v)
 
         R_E = (E1 - E) / self.dt + dEu_dx + dEv_dy
-        return R_E.pow(2).mean()
+        scale = max((self.cfg.wind_scale_ms ** 2) / self.dt, 1e-6)
+        return self._mse_norm(R_E, scale)
 
     # ── Aggregate ──────────────────────────────────────────────────────────────
 

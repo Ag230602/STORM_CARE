@@ -1,0 +1,5 @@
+model,track_km_6h,track_km_12h,track_km_24h,track_km_48h,mean_track_km_6_48h,protocol,source_csv
+Persistence,29.247,72.842,197.041,527.727,206.71425,Generated from benchmark.py outputs; window-level Irma/Ian case study,metrics/inference_test_metrics_summary.csv
+GNO+DynGNN,119.69,156.353,322.895,598.08,299.2545,Generated from benchmark.py outputs; window-level Irma/Ian case study,metrics/inference_test_metrics_summary.csv
+Transformer,170.14,211.689,381.798,611.512,343.78475,Generated from benchmark.py outputs; window-level Irma/Ian case study,metrics/inference_test_metrics_summary.csv
+LSTM,83.445,286.149,442.575,873.994,421.54075,Generated from benchmark.py outputs; window-level Irma/Ian case study,metrics/inference_test_metrics_summary.csv

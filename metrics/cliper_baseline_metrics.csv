@@ -1,0 +1,13 @@
+model,lead_h,mean_km,ci95_lo,ci95_hi,n,partition
+Persistence,6,37.4,36.2,38.8,2998,test
+Persistence,12,92.1,89.2,95.3,2891,test
+Persistence,24,232.4,225.2,239.8,2678,test
+Persistence,48,564.0,548.1,579.8,2267,test
+Persistence,72,926.2,899.9,953.4,1885,test
+Persistence,120,1707.7,1654.9,1766.4,1256,test
+CLIPER (climatology+persistence),6,45.3,44.1,46.6,2998,test
+CLIPER (climatology+persistence),12,98.9,95.9,101.8,2891,test
+CLIPER (climatology+persistence),24,224.8,217.8,230.9,2678,test
+CLIPER (climatology+persistence),48,511.3,497.2,526.9,2267,test
+CLIPER (climatology+persistence),72,818.8,794.5,844.2,1885,test
+CLIPER (climatology+persistence),120,1503.9,1458.7,1552.7,1256,test

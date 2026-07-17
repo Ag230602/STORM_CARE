@@ -7,65 +7,118 @@ Usage (called from run.py):
 """
 from __future__ import annotations
 
-import time
 from typing import Dict, List
 
 import torch
 from torch import Tensor
 
 from .config import CounterfactualConfig
-from .scenarios import SCENARIO_OVERRIDES, SCENARIO_DESCRIPTIONS
+from .scenarios import (
+    InterventionSpec,
+    SCENARIO_DESCRIPTIONS,
+    SCENARIO_INTERVENTIONS,
+)
 from ..world_model.architecture import WorldModel
 
 
 class CounterfactualEngine:
     """
-    Generates baseline + 7 counterfactual trajectories using latent-space
-    z_override perturbations.  Supports single-storm and multi-storm (averaged)
-    evaluation.
+    Generates baseline + counterfactual trajectories by modifying the observed
+    branch state, encoding that branch through the RSSM posterior, and rolling
+    forward with the learned prior and decoder.  The engine does not edit decoded
+    output trajectories.
 
     Outcome metrics (per trajectory)
     ---------------------------------
     peak_exposure        max over time of mean(exposure_dims)
-    shelter_shortfall    fraction of rollout steps where resource drops
-                         >40% below its initial value (relative, avoids saturation)
+    shelter_shortfall    exposure-weighted unmet resource proxy computed as
+                         mean(exposure * (1 - resource))
     infra_damage_final   mean(infra_dims) at the last time step
     resource_deficit     mean over time of max(0, initial_resource - resource)
     mean_hazard          mean over time and hazard dims (sanity check)
     """
-
-    DEPLETION_FRACTION = 0.40   # >40% drop from start = shortfall
 
     def __init__(self, world_model: WorldModel, cfg: CounterfactualConfig):
         self.model = world_model
         self.cfg   = cfg
         self.model.eval()
 
+    def _state_slices(self) -> Dict[str, List[int]]:
+        d = self.cfg.d_disaster_state
+        q = max(d // 4, 1)
+        return {
+            "hazard": list(range(0, q)),
+            "infra": list(range(q, 2 * q)),
+            "exposure": list(range(2 * q, 3 * q)),
+            "resource": list(range(3 * q, d)),
+        }
+
+    def _apply_intervention(
+        self,
+        warm_up: Tensor,
+        spec: InterventionSpec,
+    ) -> Tensor:
+        """
+        Apply a branch-point state intervention before posterior encoding.
+
+        The perturbation is ramped over the final warm-up steps, then the world
+        model converts the intervened state history into h/z and propagates it
+        through learned latent dynamics.
+        """
+        if spec == InterventionSpec():
+            return warm_up
+
+        out = warm_up.clone()
+        slices = self._state_slices()
+        n_steps = max(1, round(out.shape[0] * spec.warmup_fraction))
+        start = out.shape[0] - n_steps
+        ramps = torch.linspace(
+            1.0 / n_steps,
+            1.0,
+            n_steps,
+            dtype=out.dtype,
+            device=out.device,
+        )
+        deltas = {
+            "hazard": spec.hazard_delta,
+            "infra": spec.infra_delta,
+            "exposure": spec.exposure_delta,
+            "resource": spec.resource_delta,
+        }
+        for offset, scale in enumerate(ramps):
+            t = start + offset
+            for name, delta in deltas.items():
+                if abs(delta) > 0:
+                    out[t, slices[name]] = out[t, slices[name]] + scale * delta
+        return out.clamp(0.0, 1.0)
+
     @torch.no_grad()
     def _rollout_once(
         self,
         warm_up: Tensor,
-        z_override: Tensor | None = None,
+        intervention: InterventionSpec | None = None,
     ) -> Tensor:
         """Return one rollout trajectory (n_rollout_steps, d_state)."""
-        return self.model.rollout(
-            warm_up, self.cfg.n_rollout_steps, z_override
-        )
+        branch = warm_up if intervention is None else self._apply_intervention(warm_up, intervention)
+        return self.model.rollout(branch, self.cfg.n_rollout_steps)
 
     @torch.no_grad()
     def _rollout_mc(
         self,
         warm_up: Tensor,
-        z_override: Tensor | None = None,
+        intervention: InterventionSpec | None = None,
     ) -> Tensor:
         """
         Monte Carlo rollout: average cfg.n_monte_carlo stochastic rollouts.
         Returns mean trajectory (n_rollout_steps, d_state).
         """
-        samples = torch.stack([
-            self._rollout_once(warm_up, z_override)
-            for _ in range(self.cfg.n_monte_carlo)
-        ])                                         # (MC, T, d)
+        samples = []
+        for i in range(self.cfg.n_monte_carlo):
+            # Common random numbers make scenario deltas less noisy while still
+            # using stochastic RSSM rollouts.
+            torch.manual_seed(self.cfg.seed + i)
+            samples.append(self._rollout_once(warm_up, intervention))
+        samples = torch.stack(samples)             # (MC, T, d)
         return samples.mean(dim=0)                 # (T, d)
 
     def _compute_metrics(self, traj: Tensor) -> Dict[str, float]:
@@ -76,18 +129,23 @@ class CounterfactualEngine:
         cfg = self.cfg
         T   = traj.shape[0]
 
-        exp  = traj[:, cfg.exposure_dims].mean(dim=-1)     # (T,)
-        res  = traj[:, cfg.resource_dims].mean(dim=-1)     # (T,)
-        infr = traj[:, cfg.infra_dims].mean(dim=-1)        # (T,)
-        haz  = traj[:, cfg.hazard_dims].mean(dim=-1)       # (T,)
+        slices = self._state_slices()
+        bounded = traj.clamp(0.0, 1.0)
+        exp  = bounded[:, slices["exposure"]].mean(dim=-1)     # (T,)
+        res  = bounded[:, slices["resource"]].mean(dim=-1)     # (T,)
+        infr = bounded[:, slices["infra"]].mean(dim=-1)        # (T,)
+        haz  = bounded[:, slices["hazard"]].mean(dim=-1)       # (T,)
 
         peak_exposure       = exp.max().item()
-        # Relative threshold: shortfall = resource dropped >40% from initial
-        initial_resource    = res[0].item()
-        threshold           = initial_resource * (1.0 - self.DEPLETION_FRACTION)
-        shelter_shortfall   = (res < threshold).float().mean().item()
+        # Exposure-weighted unmet-resource proxy.  The previous hard threshold
+        # was degenerate for the demo RSSM because normalized resource values
+        # stayed high for every scenario.  This continuous proxy remains an
+        # outcome of the learned rollout state: exposure increases shortfall,
+        # and available resources reduce it.
+        unmet_resource      = torch.clamp(1.0 - res, min=0.0, max=1.0)
+        shelter_shortfall   = (exp * unmet_resource).mean().item()
         infra_damage_final  = infr[-1].item()
-        resource_deficit    = torch.clamp(initial_resource - res, min=0).mean().item()
+        resource_deficit    = (0.5 * (exp + haz) * unmet_resource).mean().item()
         mean_hazard         = haz.mean().item()
 
         return {
@@ -100,33 +158,32 @@ class CounterfactualEngine:
 
     def compare(self, warm_up_seq: Tensor) -> Dict[str, dict]:
         """
-        Run all 8 scenarios on one warm-up sequence.
+        Run all scenarios on one warm-up sequence.
         Returns dict: name → {description, metrics, trajectory}.
         """
         results = {}
-        for name, fn in SCENARIO_OVERRIDES.items():
-            z_override = fn(self.cfg)
-            if z_override is not None:
-                z_override = z_override.to(warm_up_seq.device)
-            traj    = self._rollout_mc(warm_up_seq, z_override)
+        for name, fn in SCENARIO_INTERVENTIONS.items():
+            intervention = fn(self.cfg)
+            traj    = self._rollout_mc(warm_up_seq, intervention)
             metrics = self._compute_metrics(traj)
             results[name] = {
                 "description": SCENARIO_DESCRIPTIONS[name],
                 "metrics":     metrics,
                 "trajectory":  traj,
+                "intervention": intervention,
             }
         return results
 
     def compare_multi_storm(
         self, warm_up_seqs: List[Tensor]
     ) -> Dict[str, dict]:
-        """Run all 8 scenarios on each storm and average metrics."""
-        accum: Dict[str, List] = {name: [] for name in SCENARIO_OVERRIDES}
+        """Run all scenarios on each storm and average metrics."""
+        accum: Dict[str, List] = {name: [] for name in SCENARIO_INTERVENTIONS}
         for warm_up in warm_up_seqs:
             for name, res in self.compare(warm_up).items():
                 accum[name].append(res["metrics"])
         averaged = {}
-        for name in SCENARIO_OVERRIDES:
+        for name in SCENARIO_INTERVENTIONS:
             rows = accum[name]
             keys = list(rows[0].keys())
             averaged[name] = {
@@ -136,69 +193,30 @@ class CounterfactualEngine:
             }
         return averaged
 
-    # ── Analytic counterfactual ────────────────────────────────────────────────
-    # Applies direct proportional modifications to decoded state trajectories.
-    # Guaranteed correct causal sign regardless of WorldModel training depth.
-    # Use compare_multi_storm() when a production-scale WorldModel is available.
-
-    def _apply_analytic_intervention(
-        self, traj: Tensor, scenario_name: str
-    ) -> Tensor:
-        cfg = self.cfg
-        t   = traj.clone()
-        ed, rd, ifd, hd = (cfg.exposure_dims, cfg.resource_dims,
-                           cfg.infra_dims, cfg.hazard_dims)
-        if scenario_name == "early_evacuation_12h":
-            t[:, ed] = t[:, ed] * 0.60
-        elif scenario_name == "early_evacuation_24h":
-            t[:, ed] = t[:, ed] * 0.45
-        elif scenario_name == "early_evacuation_36h":
-            t[:, ed] = t[:, ed] * 0.30
-        elif scenario_name == "extra_resources":
-            t[:, rd] = t[:, rd] * 1.35
-        elif scenario_name == "shelter_failure":
-            t[:, rd] *= 0.50;  t[:, ed] *= 1.30;  t[:, ifd] *= 1.20
-        elif scenario_name == "storm_intensification":
-            t[:, hd] *= 1.20;  t[:, ed] *= 1.15;  t[:, ifd] *= 1.20
-        elif scenario_name == "route_failure":
-            t[:, ifd] *= 1.40; t[:, ed] *= 1.25;  t[:, rd]  *= 0.70
-        return t
-
-    def compare_analytic(self, warm_up_seq: Tensor) -> Dict[str, dict]:
-        """
-        Analytic counterfactual: run baseline rollout once, then apply direct
-        proportional state modifications per scenario.  Correct sign is
-        guaranteed.  Use compare_multi_storm() with a production WorldModel for
-        full RSSM latent-space analysis.
-        """
-        base = self._rollout_mc(warm_up_seq, z_override=None)
-        results = {}
-        for name in SCENARIO_OVERRIDES:
-            traj = base if name == "baseline" else self._apply_analytic_intervention(base, name)
-            results[name] = {
-                "description": SCENARIO_DESCRIPTIONS[name],
-                "metrics":     self._compute_metrics(traj),
-            }
-        return results
-
-    def compare_analytic_multi_storm(
-        self, warm_up_seqs: List[Tensor]
-    ) -> Dict[str, dict]:
-        """Analytic counterfactual averaged over N test storms."""
-        accum: Dict[str, List] = {name: [] for name in SCENARIO_OVERRIDES}
-        for warm_up in warm_up_seqs:
-            for name, res in self.compare_analytic(warm_up).items():
-                accum[name].append(res["metrics"])
-        averaged = {}
-        for name in SCENARIO_OVERRIDES:
-            rows = accum[name]
-            keys = list(rows[0].keys())
-            averaged[name] = {
-                "description": SCENARIO_DESCRIPTIONS[name],
-                "metrics":     {k: round(sum(r[k] for r in rows)/len(rows), 4) for k in keys},
-                "n_storms":    len(warm_up_seqs),
-            }
-        return averaged
+    def direct_mirror_diagnostics(self, results: Dict[str, dict]) -> List[Dict[str, object]]:
+        """Check that scenario metric deltas are not equal to input deltas."""
+        baseline = results["baseline"]["metrics"]
+        checks = []
+        scenario_to_metric = {
+            "earlier_evacuation": ("peak_exposure", -self.cfg.evac_exposure_delta),
+            "delayed_evacuation": ("peak_exposure", self.cfg.delayed_evac_exposure_delta),
+            "shelter_failure": ("resource_deficit", self.cfg.shelter_failure_resource_delta),
+            "hospital_failure": ("infra_damage_final", self.cfg.hospital_failure_infra_delta),
+            "road_blockage": ("peak_exposure", self.cfg.road_blockage_exposure_delta),
+            "intensity_increase": ("mean_hazard", self.cfg.intensity_delta),
+            "intensity_decrease": ("mean_hazard", -self.cfg.intensity_delta),
+            "additional_emergency_resources": ("resource_deficit", -self.cfg.additional_resource_delta),
+        }
+        for name, (metric, input_delta) in scenario_to_metric.items():
+            observed_delta = results[name]["metrics"][metric] - baseline[metric]
+            checks.append({
+                "scenario": name,
+                "metric": metric,
+                "input_delta": round(input_delta, 6),
+                "observed_delta": round(observed_delta, 6),
+                "mirrors_input": abs(observed_delta - input_delta) < 1e-6,
+            })
+        return checks
 
     @staticmethod
     def print_report(results: Dict[str, dict], n_storms: int = 1) -> None:
@@ -217,14 +235,21 @@ class CounterfactualEngine:
         print(header)
         print("  " + "─" * 138)
         baseline = results["baseline"]["metrics"]
-        order = ["baseline",
-                 "early_evacuation_12h", "early_evacuation_24h", "early_evacuation_36h",
-                 "extra_resources",
-                 "shelter_failure", "storm_intensification", "route_failure"]
+        order = [
+            "baseline",
+            "earlier_evacuation",
+            "delayed_evacuation",
+            "additional_emergency_resources",
+            "shelter_failure",
+            "hospital_failure",
+            "road_blockage",
+            "intensity_increase",
+            "intensity_decrease",
+        ]
         prev_g = None
         for name in order:
             if name not in results: continue
-            g = ("beneficial" if name.startswith("early") or name == "extra_resources"
+            g = ("beneficial" if name in {"earlier_evacuation", "additional_emergency_resources", "intensity_decrease"}
                  else "adverse" if name != "baseline" else "ref")
             if g != prev_g and prev_g is not None:
                 print("  " + "·" * 138)
@@ -244,17 +269,13 @@ class CounterfactualEngine:
         print()
         print("  Metric guide (all lower = better):")
         print("    peak_exposure      — max population exposure across horizon")
-        print("    shelter_shortfall  — fraction of steps with >40% resource depletion from t=0")
+        print("    shelter_shortfall  — exposure-weighted unmet-resource proxy")
         print("    infra_damage_final — infrastructure damage at end of rollout")
-        print("    resource_deficit   — mean resource drop from initial level")
+        print("    resource_deficit   — hazard/exposure-weighted unmet-resource proxy")
         print("    mean_hazard        — mean storm hazard (sanity check only)")
         print("  ↑ = worse than baseline  |  ↓ = better than baseline")
         print(sep)
-        evac_keys = ["early_evacuation_12h", "early_evacuation_24h", "early_evacuation_36h"]
-        if all(k in results for k in evac_keys):
-            e12 = results["early_evacuation_12h"]["metrics"]["peak_exposure"]
-            e24 = results["early_evacuation_24h"]["metrics"]["peak_exposure"]
-            e36 = results["early_evacuation_36h"]["metrics"]["peak_exposure"]
-            mono = e12 >= e24 >= e36
-            print(f"\n  Evacuation lead-time monotonicity  12h={e12:.4f}  24h={e24:.4f}  36h={e36:.4f}"
-                  f"  →  {'\u2713 MONOTONE' if mono else '\u2717 VIOLATED'}\n")
+        if {"earlier_evacuation", "delayed_evacuation"}.issubset(results):
+            early = results["earlier_evacuation"]["metrics"]["peak_exposure"]
+            late = results["delayed_evacuation"]["metrics"]["peak_exposure"]
+            print(f"\n  Evacuation ordering  earlier={early:.4f}  delayed={late:.4f}\n")

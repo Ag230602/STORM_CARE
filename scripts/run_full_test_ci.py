@@ -1,16 +1,15 @@
 """
-run_full_test_ci.py — Run LSTM/Transformer/GNO baseline inference over all 273
-test-set HURDAT2 storms, compute per-storm track errors, and bootstrap 95% CIs.
+run_full_test_ci.py — legacy full-HURDAT learned-baseline runner.
 
-For storms without ERA5 reanalysis (all except Irma/Ian), the atmospheric
-context tensor X is set to zeros.  This is noted in the table.  Irma and Ian
-use their real ERA5 patches when available.
+This path is intentionally disabled for LSTM/Transformer/GNO submission
+metrics because it used to compare real ERA5 inputs for Irma/Ian against
+zero-filled atmospheric tensors for storms without ERA5.  That is an unequal
+input protocol and must not be used for scientific tables.
 
 Usage:
     python scripts/run_full_test_ci.py [--demo]
 Outputs:
-    tables/table1_track_error_vs_baselines.csv  (updated with full-set CIs)
-    tables/table_fullset_ci_detail.csv          (per-storm error detail)
+    none; use benchmark.py for the common ERA5-complete Irma/Ian subset.
 """
 import sys, os, json, csv, time, argparse
 import numpy as np
@@ -142,6 +141,21 @@ def main():
     parser.add_argument("--demo", action="store_true",
                         help="Use only 30 test storms for a quick check")
     args = parser.parse_args()
+    message = (
+        "Disabled: learned baselines require identical ERA5 inputs. "
+        "Use `python benchmark.py --metrics-dir metrics` for the common "
+        "ERA5-complete Irma/Ian benchmark, or first build ERA5 patches for "
+        "every HURDAT2 storm before enabling a full-set comparison."
+    )
+    os.makedirs("tables", exist_ok=True)
+    pd.DataFrame([{
+        "status": "not_evaluated",
+        "reason": "Full-HURDAT2 learned-baseline evaluation disabled because ERA5 coverage is incomplete and zero-filled ERA5 would be an unequal-input comparison.",
+        "replacement": "metrics/inference_test_metrics_summary.csv",
+    }]).to_csv("tables/table_fullset_ci_detail.csv", index=False)
+    print(message)
+    print("Wrote tables/table_fullset_ci_detail.csv with not_evaluated audit row.")
+    return
 
     np.random.seed(42)
 
@@ -279,8 +293,7 @@ def _update_table1(ci_results, n_storms, demo):
                             row[f"ci95_hi_{h}h"] = hi
                             row[f"n_{h}h"]       = n
                     row["n_storms_full"] = n_storms
-                    row["era5_note"] = ("DEMO n=30" if demo
-                                        else "Full test set; X=0 for storms without ERA5")
+                    row["era5_note"] = "Disabled unequal-input learned-baseline protocol"
 
     with open(path, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")

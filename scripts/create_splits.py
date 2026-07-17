@@ -6,10 +6,10 @@ Protocol (non-negotiable per advisor):
   - Time-based: prevents any future-data leakage
   - All downstream scripts must import SPLIT_FILE and respect these assignments
 
-Split boundaries:
-  train : 1995 – 2006  (Atlantic TC seasons, ~65%)
-  val   : 2007 – 2009  (~15%)
-  test  : 2010 – 2012  (~20%)
+Split boundaries for the bundled HURDAT2 file:
+  train : 1995 – 2015  (~66%)
+  val   : 2016 – 2019  (~14%)
+  test  : 2020 – 2024  (~21%)
 
 Usage:
     python scripts/create_splits.py
@@ -26,8 +26,8 @@ HURDAT2_PATH = "your-repo/data/data/raw/hurdat2/hurdat2_atlantic.txt"
 SPLIT_FILE   = "splits/storm_splits.json"
 SUMMARY_FILE = "splits/split_summary.csv"
 
-TRAIN_END = 2006
-VAL_END   = 2009
+TRAIN_END = 2015
+VAL_END   = 2019
 
 
 def main():
@@ -85,4 +85,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -12,7 +12,8 @@ from track_pipeline_unified_X import (
     GNO_DynGNN,
     LSTMTrackBaseline,
     TransformerTrackBaseline,
-    evaluate_prob_model
+    evaluate_prob_model,
+    decode_track_delta
 )
 
 cfg = CFG()
@@ -84,6 +85,11 @@ def load_model(model_name: str):
         raise FileNotFoundError(f"Checkpoint not found: {ckpt}")
 
     state = torch.load(ckpt, map_location=DEVICE)
+    if state.get("target_convention") != "normalized_future_displacement_from_current_t0":
+        raise ValueError(
+            f"Checkpoint {ckpt} predates the corrected normalized-displacement target. "
+            "Retrain with model/track_pipeline_unified_X.py before inference."
+        )
     model.load_state_dict(state["state"])
     model.to(DEVICE)
     model.eval()
@@ -104,24 +110,29 @@ def predict_all(model, loader):
         meta = meta.to(DEVICE)
 
         mu, sigma = model(past, X, meta)  # (B,L,2)
+        mu_lat, mu_lon, sig_lat, sig_lon = decode_track_delta(mu, sigma, lat0, lon0)
+        y_lat, y_lon, _, _ = decode_track_delta(y.to(DEVICE), None, lat0, lon0)
 
-        mu = mu.cpu().numpy()
-        sigma = sigma.cpu().numpy()
-        y = y.numpy()
+        mu_lat = mu_lat.cpu().numpy()
+        mu_lon = mu_lon.cpu().numpy()
+        sig_lat = sig_lat.cpu().numpy()
+        sig_lon = sig_lon.cpu().numpy()
+        y_lat = y_lat.cpu().numpy()
+        y_lon = y_lon.cpu().numpy()
 
-        B, L, _ = mu.shape
+        B, L = mu_lat.shape
         for b in range(B):
             for li, h in enumerate(cfg.lead_hours):
                 rows.append({
                     "storm_tag": storm_tag[b],
                     "t0": t0[b],
                     "lead_hours": int(h),
-                    "gt_lat": float(y[b, li, 0]),
-                    "gt_lon": float(y[b, li, 1]),
-                    "pred_lat": float(mu[b, li, 0]),
-                    "pred_lon": float(mu[b, li, 1]),
-                    "sigma_lat": float(sigma[b, li, 0]),
-                    "sigma_lon": float(sigma[b, li, 1]),
+                    "gt_lat": float(y_lat[b, li]),
+                    "gt_lon": float(y_lon[b, li]),
+                    "pred_lat": float(mu_lat[b, li]),
+                    "pred_lon": float(mu_lon[b, li]),
+                    "sigma_lat": float(sig_lat[b, li]),
+                    "sigma_lon": float(sig_lon[b, li]),
                 })
     return rows
 

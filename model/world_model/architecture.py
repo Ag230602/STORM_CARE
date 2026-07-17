@@ -39,7 +39,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
-from typing import Tuple, Optional
+from typing import Tuple
 
 from .config import WorldModelConfig
 
@@ -203,7 +203,6 @@ class WorldModel(nn.Module):
         self,
         warm_up_seq: Tensor,          # (T_warm, d_disaster_state) — observed
         n_steps: int,
-        z_override: Optional[Tensor] = None,   # optional latent perturbation
     ) -> Tensor:
         """
         Warm up on observed steps, then roll out n_steps using the prior.
@@ -217,17 +216,12 @@ class WorldModel(nn.Module):
         for t in range(warm_up_seq.shape[0]):
             h, z, *_ = self.rssm.step_posterior(warm_up_seq[t], h, z)
 
-        # Optional latent override (counterfactual perturbation)
-        if z_override is not None:
-            z = z + z_override
-
-        # Rollout (prior) — apply z_override persistently at every step
-        # to model a sustained intervention (do-operator), not just a nudge.
+        # Rollout (prior): counterfactual interventions must be encoded through
+        # the warm-up state before this call, not injected into decoder outputs or
+        # repeatedly added to the latent state during rollout.
         preds = []
         for _ in range(n_steps):
             h, z = self.rssm.step_prior(h, z)
-            if z_override is not None:
-                z = z + z_override   # sustained causal intervention
             preds.append(self.rssm.decode(h, z))
 
         return torch.stack(preds)   # (n_steps, d_s)

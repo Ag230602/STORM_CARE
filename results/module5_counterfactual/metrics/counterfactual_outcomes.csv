@@ -1,9 +1,10 @@
-scenario,description,peak_exposure,shelter_shortfall,infra_damage_final,resource_deficit,mean_hazard
-baseline,No intervention (reference trajectory),0.077,0.0,0.3193,0.0004,0.3311
-early_evacuation_12h,Evacuation ordered 12 h early  (exposure −40%),0.0462,0.0,0.3193,0.0004,0.3311
-early_evacuation_24h,Evacuation ordered 24 h early  (exposure −60%),0.0347,0.0,0.3193,0.0004,0.3311
-early_evacuation_36h,Evacuation ordered 36 h early  (exposure −80%),0.0231,0.0,0.3193,0.0004,0.3311
-shelter_failure,"Shelter unavailable: resource −50%, exposure +30%",0.1001,0.0,0.3832,0.0002,0.3311
-storm_intensification,"Storm intensity +20%: hazard +20%, exposure +15%",0.0886,0.0,0.3832,0.0004,0.3973
-extra_resources,"Pre-positioned resources: hospital +50%, shelter +30%",0.077,0.0,0.3193,0.0005,0.3311
-route_failure,"Transport network fails: infra −40%, exposure +25%",0.0963,0.0,0.4471,0.0002,0.3311
+scenario,description,peak_exposure,shelter_shortfall,infra_damage_final,resource_deficit,mean_hazard,n_test_sequences
+baseline,No intervention; learned world-model rollout from observed warm-up,0.2915,0.0227,0.08,0.0313,0.3403,24
+earlier_evacuation,Earlier evacuation branch-state intervention,0.2831,0.0224,0.0799,0.0309,0.3407,24
+delayed_evacuation,Delayed evacuation branch-state intervention,0.2969,0.0229,0.0801,0.0317,0.3394,24
+shelter_failure,Shelter capacity failure branch-state intervention,0.2842,0.0228,0.08,0.0315,0.3393,24
+hospital_failure,Hospital service failure branch-state intervention,0.2843,0.0227,0.08,0.0313,0.3398,24
+road_blockage,Road blockage / transport disruption branch-state intervention,0.2902,0.0229,0.08,0.0316,0.3393,24
+intensity_increase,Storm intensity increase branch-state intervention,0.297,0.023,0.0801,0.0317,0.3394,24
+intensity_decrease,Storm intensity decrease branch-state intervention,0.2854,0.0224,0.0799,0.0309,0.3409,24
+additional_emergency_resources,Additional emergency resources branch-state intervention,0.2916,0.0226,0.08,0.0312,0.3406,24

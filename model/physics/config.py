@@ -76,8 +76,17 @@ class PIGNOConfig:
     # Reference air density at 850 hPa.
     rho_air: float            = 1.225   # kg m⁻³
 
-    # Physics time step for residual evaluation (= 1 hour in seconds).
-    dt_physics: float         = 3600.0  # s
+    # Physics time step for residual evaluation.  Synthetic samples are spaced
+    # by one 6-hour storm step, so the PDE finite difference must use 6 h.
+    dt_physics: float         = 6.0 * 3600.0  # s
+
+    # Characteristic scales used to make PDE residuals dimensionless before
+    # weighting.  Without these, raw SI residuals are many orders of magnitude
+    # smaller than the field MSE and do not influence optimisation.
+    wind_scale_ms: float      = 80.0
+    geopotential_scale_m: float = 120.0
+    temperature_scale_k: float  = 10.0
+    pressure_scale_hpa: float   = 80.0
 
     # ── Physics loss weights ───────────────────────────────────────────────────
     # Total loss:
@@ -86,12 +95,12 @@ class PIGNOConfig:
     #                                   + λ_cont R_cont + λ_nrg R_nrg]
     # where α(t) = min(t / T_warmup, 1) is the physics warm-up schedule.
     lambda_data: float        = 1.00
-    lambda_adv: float         = 0.10
-    lambda_diff: float        = 0.05
-    lambda_mass: float        = 0.10
-    lambda_wp: float          = 0.20
-    lambda_cont: float        = 0.05
-    lambda_energy: float      = 0.05
+    lambda_adv: float         = 1000.0
+    lambda_diff: float        = 500.0
+    lambda_mass: float        = 1000.0
+    lambda_wp: float          = 500.0
+    lambda_cont: float        = 1000.0
+    lambda_energy: float      = 100.0
 
     # ── Training ───────────────────────────────────────────────────────────────
     lr: float                 = 1e-3
@@ -109,6 +118,9 @@ class PIGNOConfig:
     # ── Reproducibility ────────────────────────────────────────────────────────
     seed: int                 = 42
     demo: bool                = False
+
+    checkpoint_dir: str       = "checkpoints/physics"
+    metrics_dir: str          = "metrics/physics"
 
     # ── Demo overrides ─────────────────────────────────────────────────────────
     def apply_demo_overrides(self) -> "PIGNOConfig":

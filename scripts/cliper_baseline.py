@@ -15,7 +15,8 @@ for tropical cyclone track forecasting.  It requires no ML training.
 Usage:
     python scripts/cliper_baseline.py
 Outputs:
-    tables/table1_track_error_vs_baselines.csv  (updated with CLIPER row)
+    metrics/cliper_baseline_metrics.csv
+    tables/table1_track_error_vs_baselines.csv
 """
 import sys, os, csv, json
 import numpy as np
@@ -25,6 +26,7 @@ from model.foundation.data_pipeline import parse_hurdat2_full
 
 HURDAT2_PATH = "your-repo/data/data/raw/hurdat2/hurdat2_atlantic.txt"
 SPLIT_FILE   = "splits/storm_splits.json"
+METRICS_FILE = "metrics/cliper_baseline_metrics.csv"
 LEADS        = [1, 2, 4, 8, 12, 20]   # steps × 6h = 6, 12, 24, 48, 72, 120 h
 LEAD_H       = [l * 6 for l in LEADS]
 DEG_TO_KM    = 111.0
@@ -167,7 +169,19 @@ def main():
         rows_persist.append({"lead_h": h, "mean_km": pm, "ci95_lo": plo, "ci95_hi": phi, "n": n})
         rows_cliper.append( {"lead_h": h, "mean_km": cm, "ci95_lo": clo, "ci95_hi": chi, "n": n})
 
-    # Update Table 1
+    os.makedirs(os.path.dirname(METRICS_FILE), exist_ok=True)
+    metric_rows = []
+    for model_name, data_rows in [
+        ("Persistence", rows_persist),
+        ("CLIPER (climatology+persistence)", rows_cliper),
+    ]:
+        for item in data_rows:
+            metric_rows.append({"model": model_name, **item, "partition": "test"})
+    with open(METRICS_FILE, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(metric_rows[0].keys()))
+        w.writeheader(); w.writerows(metric_rows)
+    print(f"  Saved {METRICS_FILE}")
+
     os.makedirs("tables", exist_ok=True)
     _update_table1(rows_persist, rows_cliper)
     print("\nDone. Table 1 updated.")
@@ -175,23 +189,27 @@ def main():
 
 def _update_table1(persist_rows, cliper_rows):
     path = "tables/table1_track_error_vs_baselines.csv"
-    with open(path) as f:
-        rows = list(csv.DictReader(f))
-    fieldnames = list(rows[0].keys())
-
-    # Add CI columns if missing
-    for col in ["ci95_lo_6h", "ci95_hi_6h", "ci95_lo_12h", "ci95_hi_12h",
-                "ci95_lo_24h", "ci95_hi_24h", "ci95_lo_48h", "ci95_hi_48h",
-                "ci95_lo_72h", "ci95_hi_72h", "ci95_lo_120h", "ci95_hi_120h"]:
-        if col not in fieldnames:
-            fieldnames.append(col)
+    fieldnames = [
+        "model",
+        "track_km_6h", "track_km_12h", "track_km_24h", "track_km_48h",
+        "track_km_72h", "track_km_120h",
+        "ci95_lo_6h", "ci95_hi_6h", "ci95_lo_12h", "ci95_hi_12h",
+        "ci95_lo_24h", "ci95_hi_24h", "ci95_lo_48h", "ci95_hi_48h",
+        "ci95_lo_72h", "ci95_hi_72h", "ci95_lo_120h", "ci95_hi_120h",
+        "partition", "protocol", "source_csv",
+    ]
 
     # Map lead to column name
     lead_col = {6: "track_km_6h", 12: "track_km_12h", 24: "track_km_24h",
                 48: "track_km_48h", 72: "track_km_72h", 120: "track_km_120h"}
 
     def make_row(name, data_rows):
-        r = {"model": name, "notes": f"Computed by cliper_baseline.py from TEST partition"}
+        r = {
+            "model": name,
+            "partition": "test",
+            "protocol": "Storm-level HURDAT2 time split",
+            "source_csv": METRICS_FILE,
+        }
         for item in data_rows:
             h = item["lead_h"]
             col = lead_col.get(h)
@@ -201,12 +219,10 @@ def _update_table1(persist_rows, cliper_rows):
                 r[f"ci95_hi_{h}h"] = item["ci95_hi"]
         return r
 
-    # Remove old Persistence/CLIPER rows if present
-    rows = [r for r in rows if r["model"] not in ("Persistence", "CLIPER")]
-
-    # Add Persistence and CLIPER
-    rows.insert(0, make_row("CLIPER (climatology+persistence)", cliper_rows))
-    rows.insert(0, make_row("Persistence", persist_rows))
+    rows = [
+        make_row("Persistence", persist_rows),
+        make_row("CLIPER (climatology+persistence)", cliper_rows),
+    ]
 
     with open(path, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")

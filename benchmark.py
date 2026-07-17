@@ -31,12 +31,35 @@ def configure_paths(metrics_dir: Path) -> pipeline.CFG:
     return cfg
 
 
-def build_train_test_split(samples: List[Dict], train_ratio: float, seed: int) -> Tuple[np.ndarray, np.ndarray]:
-    rng = np.random.RandomState(seed)
-    idx = np.arange(len(samples))
-    rng.shuffle(idx)
-    n_train = int(len(samples) * train_ratio)
-    return idx[:n_train], idx[n_train:]
+def _candidate_windows(track_df: pd.DataFrame) -> int:
+    lead_steps = [h // 6 for h in pipeline.cfg.lead_hours]
+    count = 0
+    for i in range(pipeline.cfg.history_steps - 1, len(track_df)):
+        if i + max(lead_steps) >= len(track_df):
+            break
+        count += 1
+    return count
+
+
+def _write_input_audit(metrics_dir: Path, storm_rows: List[Dict[str, object]], samples: List[Dict]) -> None:
+    audit_rows = []
+    for row in storm_rows:
+        storm_samples = [s for s in samples if s["storm_tag"] == row["storm_tag"]]
+        raw_x_nonfinite = int(sum(np.size(s["X"]) - np.isfinite(s["X"]).sum() for s in storm_samples))
+        norm_x_nonfinite = int(sum(
+            np.size(pipeline.normalize_era5_patch(s["X"])) - np.isfinite(pipeline.normalize_era5_patch(s["X"])).sum()
+            for s in storm_samples
+        ))
+        audit_rows.append({
+            **row,
+            "era5_complete_windows": len(storm_samples),
+            "skipped_era5_or_crop": int(row["candidate_windows"]) - len(storm_samples),
+            "raw_x_nonfinite_values": raw_x_nonfinite,
+            "normalized_x_nonfinite_values": norm_x_nonfinite,
+            "input_protocol": "common ERA5-complete Irma/Ian windows for all learned baselines",
+            "normalization": "per-sample channel z-score ERA5; lat/90 lon/180 history; vmax/150 and centered mslp; normalized future displacement targets",
+        })
+    pd.DataFrame(audit_rows).to_csv(metrics_dir / "baseline_input_audit.csv", index=False)
 
 
 def rebuild_samples() -> List[Dict]:
@@ -53,16 +76,45 @@ def rebuild_samples() -> List[Dict]:
 
     samples = s1 + s2
     print(f"Total samples available: {len(samples)}")
+    _write_input_audit(
+        Path(cfg.metrics_dir),
+        [
+            {"storm_tag": "irma", "track_rows": len(irma_df), "candidate_windows": _candidate_windows(irma_df)},
+            {"storm_tag": "ian", "track_rows": len(ian_df), "candidate_windows": _candidate_windows(ian_df)},
+        ],
+        samples,
+    )
     return samples
 
 
-def load_test_dataset(test_ratio: float) -> Tuple[pipeline.TrackDataset, List[Dict]]:
+def _write_split_manifest(metrics_dir: Path, samples: List[Dict], tr_idx: np.ndarray, val_idx: np.ndarray, test_idx: np.ndarray) -> None:
+    split_lookup = {}
+    for name, idxs in [("train", tr_idx), ("val", val_idx), ("test", test_idx)]:
+        for idx in idxs:
+            split_lookup[int(idx)] = name
+    rows = []
+    for idx, sample in enumerate(samples):
+        rows.append({
+            "sample_index": idx,
+            "split": split_lookup[int(idx)],
+            "storm_tag": sample["storm_tag"],
+            "t0": sample["t0"],
+            "lat0": float(sample["lat0"]),
+            "lon0": float(sample["lon0"]),
+            "era5_available": True,
+        })
+    pd.DataFrame(rows).to_csv(metrics_dir / "baseline_split_manifest.csv", index=False)
+
+
+def load_test_dataset(test_ratio: float | None = None) -> Tuple[pipeline.TrackDataset, List[Dict]]:
     cfg = pipeline.cfg
+    if test_ratio is not None and abs(float(test_ratio) - float(cfg.test_ratio)) > 1e-12:
+        raise ValueError(f"Benchmark test_ratio={test_ratio} does not match training cfg.test_ratio={cfg.test_ratio}")
     samples = rebuild_samples()
-    train_ratio = 1.0 - test_ratio
-    _, test_idx = build_train_test_split(samples, train_ratio=train_ratio, seed=cfg.seed)
+    tr_idx, val_idx, test_idx = pipeline.split_sample_indices(len(samples), seed=cfg.seed)
+    _write_split_manifest(Path(cfg.metrics_dir), samples, tr_idx, val_idx, test_idx)
     test_samples = [samples[i] for i in test_idx]
-    print(f"Benchmark split: train={len(samples) - len(test_samples)} test={len(test_samples)}")
+    print(f"Benchmark split: train={len(tr_idx)} val={len(val_idx)} test={len(test_samples)}")
     return pipeline.TrackDataset(test_samples), test_samples
 
 
@@ -97,6 +149,11 @@ def load_model(model_name: str) -> torch.nn.Module:
         raise FileNotFoundError(f"Missing checkpoint: {checkpoint_path}")
 
     state = torch.load(checkpoint_path, map_location=cfg.device)
+    if state.get("target_convention") != "normalized_future_displacement_from_current_t0":
+        raise ValueError(
+            f"Checkpoint {checkpoint_path} was not trained with the corrected normalized-displacement target. "
+            "Rerun model/track_pipeline_unified_X.py before benchmarking."
+        )
     model.load_state_dict(state["state"])
     model.to(cfg.device)
     model.eval()
@@ -125,23 +182,26 @@ def predict_probabilistic_rows(model: torch.nn.Module, loader, base_rows: Dict[T
     rows: List[Dict[str, object]] = []
     with torch.no_grad():
         for past, X, meta, y, info in loader:
-            storm_tag, t0, _, _ = info
+            storm_tag, t0, lat0, lon0 = info
             past = past.to(cfg.device)
             X = X.to(cfg.device)
             meta = meta.to(cfg.device)
             mu, sigma = model(past, X, meta)
+            mu_lat, mu_lon, sig_lat, sig_lon = pipeline.decode_track_delta(mu, sigma, lat0, lon0)
 
-            mu_np = mu.cpu().numpy()
-            sigma_np = sigma.cpu().numpy()
+            mu_lat_np = mu_lat.cpu().numpy()
+            mu_lon_np = mu_lon.cpu().numpy()
+            sig_lat_np = sig_lat.cpu().numpy()
+            sig_lon_np = sig_lon.cpu().numpy()
 
-            for batch_index in range(mu_np.shape[0]):
+            for batch_index in range(mu_lat_np.shape[0]):
                 key = (str(storm_tag[batch_index]), str(t0[batch_index]))
                 row = dict(base_rows[key])
                 for lead_index, hour in enumerate(cfg.lead_hours):
-                    row[f"pred_mu_lat_{hour}h"] = float(mu_np[batch_index, lead_index, 0])
-                    row[f"pred_mu_lon_{hour}h"] = float(mu_np[batch_index, lead_index, 1])
-                    row[f"pred_sigma_lat_{hour}h"] = float(sigma_np[batch_index, lead_index, 0])
-                    row[f"pred_sigma_lon_{hour}h"] = float(sigma_np[batch_index, lead_index, 1])
+                    row[f"pred_mu_lat_{hour}h"] = float(mu_lat_np[batch_index, lead_index])
+                    row[f"pred_mu_lon_{hour}h"] = float(mu_lon_np[batch_index, lead_index])
+                    row[f"pred_sigma_lat_{hour}h"] = float(sig_lat_np[batch_index, lead_index])
+                    row[f"pred_sigma_lon_{hour}h"] = float(sig_lon_np[batch_index, lead_index])
                 rows.append(row)
     return rows
 

@@ -388,10 +388,26 @@ def build_report_md(
             f.write(f"- Landfall time error proxy: `plots/{os.path.basename(plot_files['landfall'])}`\n")
         f.write("\n")
 
-        f.write("## Notes / Interpretation (fill in after you inspect plots)\n")
-        f.write("- Persistence should degrade quickly beyond 12h.\n")
-        f.write("- LSTM and Transformer should improve accuracy over Persistence.\n")
-        f.write("- GNO+DynGNN should generally perform best at longer horizons and give smoother uncertainty.\n\n")
+        f.write("## Data-grounded interpretation\n")
+        f.write(
+            "- This report is generated from `inference_test_metrics_summary.csv` "
+            "and `inference_test_predictions_all_models.csv`; it does not add "
+            "manual performance claims.\n"
+        )
+        if best_row is not None:
+            f.write(
+                f"- The lowest mean track error on this regenerated benchmark is "
+                f"`{best_model}` ({best_mean:.2f} km over 6/12/24/48h).\n"
+            )
+        f.write(
+            "- Treat this as an Irma/Ian window-level case-study benchmark unless "
+            "the upstream experiment is rerun with storm-held-out splits and "
+            "training data disjoint from test storms.\n"
+        )
+        f.write(
+            "- Cone coverage is reported only for probabilistic models with finite "
+            "sigma columns; deterministic baselines should have missing coverage.\n\n"
+        )
 
         if storm_breakdown_txt:
             f.write("## Per-storm breakdown (24h/48h mean error from predictions CSV)\n\n")

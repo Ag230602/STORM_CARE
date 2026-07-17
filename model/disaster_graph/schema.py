@@ -158,6 +158,7 @@ def generate_scenario(
     node_types: np.ndarray,
     coords: np.ndarray,
     storm_track: np.ndarray,
+    vmax_ms: float,
     base_features: np.ndarray,
     damage: np.ndarray,
 ) -> DisasterScenario:
@@ -179,11 +180,28 @@ def generate_scenario(
     dist = np.linalg.norm(coords - storm_pos, axis=1)      # (N,)
 
     # Wind speed at each node (Rankine outer profile)
-    V = cfg.vmax_ms * np.exp(-dist / (cfg.rmax_norm + 1e-6))  # (N,)
+    V = vmax_ms * np.exp(-dist / (cfg.rmax_norm + 1e-6))  # (N,)
 
-    # Damage accumulation (only infrastructure nodes)
-    alpha = np.where(node_types == ATM_TYPE, 0.0, 0.02)
-    damage += alpha * V * (6 * 3600)    # Δt = 6 h = 21600 s (scaled to [0,1])
+    # Damage accumulation (only non-atmospheric nodes).
+    # The previous alpha * V * seconds formula saturated targets to one after
+    # a single step.  This bounded hazard^2 update preserves variation across
+    # node types and time while remaining a synthetic proxy target.
+    hazard = np.clip(V / max(cfg.vmax_ms, 1e-6), 0.0, 1.0)
+    alpha = np.zeros_like(hazard, dtype=np.float32)
+    region_mask = node_types == REGION_TYPE
+    school_mask = node_types == SCHOOL_TYPE
+    hospital_mask = node_types == HOSPITAL_TYPE
+    shelter_mask = node_types == SHELTER_TYPE
+    pop_mask = node_types == POP_TYPE
+
+    alpha[region_mask] = 0.200 * (0.5 + base_features[region_mask, 1])
+    alpha[school_mask] = 0.300 * (1.2 - base_features[school_mask, 1])
+    alpha[hospital_mask] = 0.280 * (1.25 - base_features[hospital_mask, 1]) * (
+        1.0 - 0.25 * base_features[hospital_mask, 3]
+    )
+    alpha[shelter_mask] = 0.220 * (1.2 - base_features[shelter_mask, 2])
+    alpha[pop_mask] = 0.160 * (0.7 + base_features[pop_mask, 1])
+    damage += alpha * (hazard ** 2)
     damage = np.clip(damage, 0, 1)
 
     # Build node feature matrix at this time step
@@ -269,14 +287,72 @@ def build_dataset(
             sc = generate_scenario(
                 cfg, sc_rng, t,
                 edge_index, edge_types, node_types, coords,
-                storm_track, base, damage,
+                storm_track, vmax, base, damage,
             )
-            cfg_vmax = vmax  # scenario-specific vmax
             steps.append(sc)
 
         all_scenarios.append(steps)
 
     return all_scenarios
+
+
+def node_offsets(cfg: DisasterGraphConfig) -> dict[str, int]:
+    na = cfg.n_atm
+    nr = cfg.n_regions
+    ns = cfg.n_schools
+    nh = cfg.n_hospitals
+    nsh = cfg.n_shelters
+    return {
+        "atm": 0,
+        "region": na,
+        "school": na + nr,
+        "hospital": na + nr + ns,
+        "shelter": na + nr + ns + nh,
+        "pop": na + nr + ns + nh + nsh,
+    }
+
+
+def humanitarian_targets(cfg: DisasterGraphConfig, sc: DisasterScenario) -> dict[str, Tensor]:
+    """Simulator-derived proxy labels for the humanitarian heads.
+
+    These are synthetic targets generated from the scenario state, not observed
+    disaster labels.  They are separated from model inputs and used only as
+    supervised labels/evaluation targets.
+    """
+    off = node_offsets(cfg)
+    dmg = sc.targets.float()
+    nf = sc.node_features.float()
+    ns = cfg.n_schools
+    nh = cfg.n_hospitals
+    nsh = cfg.n_shelters
+    np_ = cfg.n_pop
+    o_reg = off["region"]
+    o_sch = off["school"]
+    o_hos = off["hospital"]
+    o_sht = off["shelter"]
+    o_pop = off["pop"]
+
+    pop_damage = dmg[o_pop:o_pop + np_]
+    child_exposure_frac = pop_damage.clamp(0.0, 1.0)
+    pop_feat = nf[o_pop:o_pop + np_]
+    exposed_children_count = (
+        pop_feat[:, 0] * pop_feat[:, 3] * child_exposure_frac * 20_000.0
+    )
+    school_damage = dmg[o_sch:o_sch + ns].clamp(0.0, 1.0)
+    hospital_access = (1.0 - dmg[o_hos:o_hos + nh]).clamp(0.0, 1.0)
+    shelter_demand = (
+        0.55 * dmg[o_sht:o_sht + nsh] + 0.45 * nf[o_sht:o_sht + nsh, 1]
+    ).clamp(0.0, 1.0)
+    recovery_priority = dmg[o_reg:o_pop].clamp(0.0, 1.0)
+    return {
+        "child_exposure_frac": child_exposure_frac,
+        "exposed_children_count": exposed_children_count,
+        "school_damage": school_damage,
+        "school_disrupted": (school_damage > cfg.school_disruption_threshold).float(),
+        "hospital_access": hospital_access,
+        "shelter_demand": shelter_demand,
+        "recovery_priority": recovery_priority,
+    }
 
 
 # ── Humanitarian output utilities ─────────────────────────────────────────────

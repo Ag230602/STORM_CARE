@@ -95,6 +95,7 @@ def train_linear_probe(
     d_model: int,
     epochs: int = 30,
     lr: float = 0.01,
+    seed: int = 42,
 ) -> float:
     """Train a linear probe and return test accuracy using scikit-learn."""
     from sklearn.linear_model import LogisticRegression
@@ -102,15 +103,18 @@ def train_linear_probe(
     N = len(cls_embeds)
     if N < 4:
         return float("nan")
-    split = max(1, int(N * 0.8))
-    X_tr, y_tr = cls_embeds[:split], labels[:split]
-    X_te, y_te = cls_embeds[split:], labels[split:]
+    rng = np.random.default_rng(seed)
+    idx = rng.permutation(N)
+    split = min(N - 1, max(1, int(N * 0.8)))
+    tr_idx, te_idx = idx[:split], idx[split:]
+    X_tr, y_tr = cls_embeds[tr_idx], labels[tr_idx]
+    X_te, y_te = cls_embeds[te_idx], labels[te_idx]
     if len(np.unique(y_tr)) < 2 or len(y_te) == 0:
         return float("nan")
     scaler = StandardScaler()
     X_tr = scaler.fit_transform(X_tr)
     X_te = scaler.transform(X_te)
-    clf = LogisticRegression(max_iter=200, C=1.0, solver="lbfgs")
+    clf = LogisticRegression(max_iter=200, C=1.0, solver="lbfgs", random_state=seed)
     clf.fit(X_tr, y_tr)
     acc = float((clf.predict(X_te) == y_te).mean())
     return acc
@@ -150,6 +154,7 @@ class FoundationEvaluator:
         horizon_mu_all    = [[] for _ in range(n_leads)]
         horizon_sigma_all = [[] for _ in range(n_leads)]
         horizon_tgt_all   = [[] for _ in range(n_leads)]
+        horizon_valid_all = [[] for _ in range(n_leads)]
 
         # CLS embeddings for linear probe
         cls_list: List[np.ndarray] = []
@@ -191,10 +196,12 @@ class FoundationEvaluator:
             h_mu  = out1["horizon_mu"].cpu().numpy()     # (B, n_leads, 2)
             h_sig = out1["horizon_sigma"].cpu().numpy()
             h_tgt = batch["horizon_targets"].numpy()     # (B, n_leads, 2)
+            h_val = batch["horizon_valid"].numpy().astype(bool)
             for k in range(n_leads):
                 horizon_mu_all[k].append(h_mu[:, k])
                 horizon_sigma_all[k].append(h_sig[:, k])
                 horizon_tgt_all[k].append(h_tgt[:, k])
+                horizon_valid_all[k].append(h_val[:, k])
 
             # CLS for linear probe  (hurricane = status HU = status_int 2)
             cls_list.append(out1["cls_emb"].cpu().numpy())
@@ -223,6 +230,20 @@ class FoundationEvaluator:
             mu_k   = np.concatenate(horizon_mu_all[k], axis=0)     # (N, 2)
             sig_k  = np.concatenate(horizon_sigma_all[k], axis=0)
             tgt_k  = np.concatenate(horizon_tgt_all[k], axis=0)
+            valid_k = np.concatenate(horizon_valid_all[k], axis=0)
+            n_valid = int(valid_k.sum())
+
+            if n_valid == 0:
+                metrics[f"track_err_km_{h}h"] = float("nan")
+                metrics[f"crps_{h}h"] = float("nan")
+                metrics[f"cone_p50_{h}h"] = float("nan")
+                metrics[f"cone_p90_{h}h"] = float("nan")
+                metrics[f"n_valid_{h}h"] = 0
+                continue
+
+            mu_k = mu_k[valid_k]
+            sig_k = sig_k[valid_k]
+            tgt_k = tgt_k[valid_k]
 
             # Track error in km (Δlat, Δlon as degrees → haversine)
             # mu_k[:, 0] = Δlat (degrees),  mu_k[:, 1] = Δlon (degrees)
@@ -256,13 +277,14 @@ class FoundationEvaluator:
             metrics[f"crps_{h}h"]          = crps_per_lead[h]
             metrics[f"cone_p50_{h}h"]      = cone50_per_lead[h]
             metrics[f"cone_p90_{h}h"]      = cone90_per_lead[h]
+            metrics[f"n_valid_{h}h"]       = n_valid
 
         # ── Linear probe ───────────────────────────────────────────────────
         if len(cls_list) > 0 and len(label_list) > 0:
             all_cls    = np.concatenate(cls_list, axis=0)
             all_labels = np.concatenate(label_list, axis=0)
             if len(np.unique(all_labels)) > 1:
-                acc = train_linear_probe(all_cls, all_labels, self.cfg.d_model)
+                acc = train_linear_probe(all_cls, all_labels, self.cfg.d_model, seed=self.cfg.seed)
                 metrics["linear_probe_acc"] = acc
             else:
                 metrics["linear_probe_acc"] = float("nan")
@@ -280,8 +302,12 @@ class FoundationEvaluator:
         ordered_keys = sorted(metrics.keys())
         for k in ordered_keys:
             v = metrics[k]
-            if not math.isnan(v):
-                print(f"  {k:<35} {v:>12.4f}")
+            try:
+                fv = float(v)
+            except (TypeError, ValueError):
+                continue
+            if not math.isnan(fv):
+                print(f"  {k:<35} {fv:>12.4f}")
         print(f"{'─'*62}")
 
     @staticmethod

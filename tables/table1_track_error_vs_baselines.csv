@@ -1,9 +1,3 @@
-model,track_km_6h,track_km_12h,track_km_24h,track_km_48h,track_km_72h,track_km_120h,notes,ci95_lo_6h,ci95_hi_6h,ci95_lo_12h,ci95_hi_12h,ci95_lo_24h,ci95_hi_24h,ci95_lo_48h,ci95_hi_48h,ci95_lo_72h,ci95_hi_72h,ci95_lo_120h,ci95_hi_120h,n_storms_full,era5_note
-Persistence,35.8,88.5,224.5,558.2,937.6,1750.3,Computed by cliper_baseline.py from TEST partition,35.0,36.6,86.8,90.3,220.2,228.9,547.9,568.6,919.2,955.7,1712.7,1786.6,,
-CLIPER (climatology+persistence),43.7,95.7,219.9,512.2,837.3,1543.2,Computed by cliper_baseline.py from TEST partition,42.9,44.5,94.1,97.5,215.7,224.1,503.0,522.0,820.9,854.3,1510.2,1576.1,,
-CLIPER (climatology),—,—,—,—,—,—,PENDING: ~1 day to script from NHC CLIPER coefficients,,,,,,,,,,,,,,
-LSTM,6484.6,6238.0,6315.8,5840.7,—,—,inference_test_metrics_summary.csv; 72/120h not recorded,6433.5,6532.4,6190.4,6285.0,6264.6,6367.9,5795.8,5886.0,,,,,239,Full test set; X=0 for storms without ERA5
-Transformer,7403.3,7122.2,7864.8,7565.6,—,—,inference_test_metrics_summary.csv; high error = instability,7353.0,7458.4,7071.9,7172.1,7815.9,7911.8,7515.6,7611.2,,,,,239,Full test set; X=0 for storms without ERA5
-GNO+DynGNN,6289.0,6279.2,5407.6,6757.3,—,—,inference_test_metrics_summary.csv; strongest existing baseline,6241.6,6335.1,6227.0,6324.7,5360.5,5452.1,6714.8,6800.5,,,,,239,Full test set; X=0 for storms without ERA5
-STORM-CARE-FM (ep 8),134.7,263.4,498.4,902.3,1189.1,1466.1,foundation_eval_metrics.csv epoch 8 — best short-range ckpt,,,,,,,,,,,,,,
-STORM-CARE-FM (ep 4),143.7,272.1,506.7,885.1,1138.0,1342.9,foundation_eval_metrics.csv epoch 4 — better 48–120h,,,,,,,,,,,,,,
+model,partition,protocol,source_csv,track_km_6h,ci95_lo_6h,ci95_hi_6h,n_6h,track_km_12h,ci95_lo_12h,ci95_hi_12h,n_12h,track_km_24h,ci95_lo_24h,ci95_hi_24h,n_24h,track_km_48h,ci95_lo_48h,ci95_hi_48h,n_48h,track_km_72h,ci95_lo_72h,ci95_hi_72h,n_72h,track_km_120h,ci95_lo_120h,ci95_hi_120h,n_120h,mean_track_km_6_120h
+CLIPER (climatology+persistence),test,Storm-level HURDAT2 time split,metrics/cliper_baseline_metrics.csv,45.3,44.1,46.6,2998,98.9,95.9,101.8,2891,224.8,217.8,230.9,2678,511.3,497.2,526.9,2267,818.8,794.5,844.2,1885,1503.9,1458.7,1552.7,1256,533.8333333333334
+Persistence,test,Storm-level HURDAT2 time split,metrics/cliper_baseline_metrics.csv,37.4,36.2,38.8,2998,92.1,89.2,95.3,2891,232.4,225.2,239.8,2678,564.0,548.1,579.8,2267,926.2,899.9,953.4,1885,1707.7,1654.9,1766.4,1256,593.3000000000001

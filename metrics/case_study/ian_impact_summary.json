@@ -1,0 +1,47 @@
+{
+  "hazard_map": [
+    [
+      0.017316095530986786,
+      0.030347632244229317,
+      0.017932085320353508
+    ],
+    [
+      0.04124452546238899,
+      0.015345168299973011,
+      0.03606730327010155
+    ],
+    [
+      0.0111701600253582,
+      0.6394253373146057,
+      0.010683531872928143
+    ]
+  ],
+  "wind_field_max_ms": 49.4,
+  "exposed_children_est": 62,
+  "school_disruption_pct": 0.0,
+  "hospital_access_avg": 0.98,
+  "shelter_demand_avg": 0.2,
+  "shelter_at_capacity": 0,
+  "recovery_priority_zones": [
+    19,
+    17,
+    16,
+    18,
+    15,
+    14,
+    13,
+    20,
+    21,
+    23,
+    22,
+    10,
+    12,
+    11,
+    9
+  ],
+  "top3_priority_labels": [
+    "Hospital-0",
+    "School-4",
+    "School-3"
+  ]
+}

@@ -57,6 +57,7 @@ class DisasterGraphConfig:
     n_steps:     int = 12    # time steps per scenario (each step = 6 h)
     vmax_ms:     float = 65.0  # maximum storm wind speed in m/s
     rmax_norm:   float = 0.25  # radius of maximum wind (normalised domain)
+    school_disruption_threshold: float = 0.15
 
     # ── Training ───────────────────────────────────────────────────────────────
     lr:           float = 1e-3

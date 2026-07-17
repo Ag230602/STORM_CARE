@@ -1,0 +1,18 @@
+{
+  "generated_at_unix": 1784250099.3142478,
+  "table": "tables/table3_ablations.csv",
+  "metrics": {
+    "foundation": "metrics/ablations/foundation_ablation_metrics.csv",
+    "graph": "metrics/ablations/graph_ablation_metrics.csv",
+    "physics": "metrics/physics/physics_full_vs_ablation.csv",
+    "counterfactual": "metrics/counterfactual/counterfactual_outcomes.csv",
+    "no_physics_runtime": "metrics/ablations/no_physics_runtime.json",
+    "no_world_model_runtime": "metrics/ablations/no_world_model_runtime.json"
+  },
+  "constraints": [
+    "No manual CSV edits",
+    "No fabricated numbers",
+    "Identical train/test data within each ablation evaluator",
+    "Explicit status values for non-applicable module metrics"
+  ]
+}

@@ -4,17 +4,18 @@ CounterfactualConfig — configuration for the Counterfactual Reasoning Engine
 
 The engine takes a trained World Model (Module 4), generates a baseline
 trajectory from an initial disaster state, then replays the same initial state
-under five different interventions and compares outcomes.
+under branch-point interventions and compares outcomes.
 
 Scenarios simulated
 -------------------
-  1. early_evacuation       Mobility of population clusters increased 40 %
-                            for the first 4 time steps (people leave sooner).
-  2. shelter_failure        One shelter's capacity drops to zero (e.g. flooding).
-  3. storm_intensification  Hazard component of the latent state scaled ×1.20.
-  4. extra_resources        Hospital capacity +50 %, shelter supplies +30 %.
-  5. route_failure          Transportation connectivity removed from the latent
-                            state (road network fails due to storm damage).
+  1. earlier_evacuation
+  2. delayed_evacuation
+  3. shelter_failure
+  4. hospital_failure
+  5. road_blockage
+  6. intensity_increase
+  7. intensity_decrease
+  8. additional_emergency_resources
 
 Outcome metrics computed per trajectory
 -----------------------------------------
@@ -38,14 +39,21 @@ class CounterfactualConfig:
     n_rollout_steps: int = 20    # forecast horizon for each scenario
     n_initial_steps: int = 3     # warm-up steps before the branch point
     n_monte_carlo:   int = 10    # MC samples per scenario (stochastic rollout)
+    n_test_sequences: int | None = None  # None means use complete held-out split
 
     # ── Scenario intervention strengths ───────────────────────────────────────
-    evac_boost:           float = 0.40   # mobility increase for early evacuation
-    shelter_fail_idx:     int   = 0      # which shelter fails (0-indexed)
-    storm_intensity_scale: float = 1.20  # multiplicative scale on hazard dims
-    resource_hospital_boost: float = 0.50
-    resource_shelter_boost:  float = 0.30
-    route_fail_scale:     float = 0.0    # transport dims set to this fraction
+    # Additive normalized branch-state interventions.  These are not reported as
+    # expected percentage outcome changes; they are inputs to the learned RSSM.
+    evac_exposure_delta: float = 0.12
+    delayed_evac_exposure_delta: float = 0.12
+    shelter_failure_resource_delta: float = 0.18
+    hospital_failure_infra_delta: float = 0.12
+    hospital_failure_resource_delta: float = 0.10
+    road_blockage_infra_delta: float = 0.09
+    road_blockage_exposure_delta: float = 0.08
+    road_blockage_resource_delta: float = 0.08
+    intensity_delta: float = 0.10
+    additional_resource_delta: float = 0.14
 
     # ── Latent space semantic slices (assume d_latent=32, split into 4×8) ──────
     # These tell the engine which dimensions of z correspond to each concept.
@@ -78,4 +86,4 @@ class CounterfactualConfig:
         tag = "[DEMO] " if self.demo else ""
         return (f"{tag}CounterfactualConfig | "
                 f"horizon={self.n_rollout_steps} steps | "
-                f"MC samples={self.n_monte_carlo} | 5 scenarios")
+                f"MC samples={self.n_monte_carlo} | 8 interventions + baseline")

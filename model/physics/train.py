@@ -155,6 +155,7 @@ def advance_vortex(
     s:        np.ndarray,
     grid_size: int,
     dt_h:      float = 6.0,
+    domain_radius_deg: float = 8.0,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Translate the vortex by one 6-hour step using simplified TC steering.
@@ -164,12 +165,15 @@ def advance_vortex(
 
     Returns: (s_next, track_delta) where track_delta = [Δlat °, Δlon °].
     """
-    N      = grid_size
-    d_lat  = +3.0 / 111.0 * dt_h / 1.0    # ° north:  3 m/s → km/h → deg
-    d_lon  = -5.0 / 111.0 * dt_h / 1.0    # ° west:   5 m/s → km/h → deg
+    N = grid_size
+    dt_s = dt_h * 3600.0
+    meters_per_degree = 111_000.0
+    d_lat = +3.0 * dt_s / meters_per_degree
+    d_lon = -5.0 * dt_s / meters_per_degree
 
-    dy_cells = int(round(d_lat / (2.0 / N)))
-    dx_cells = int(round(d_lon / (2.0 / N)))
+    cell_deg = (2.0 * domain_radius_deg) / max(N - 1, 1)
+    dy_cells = int(round(d_lat / cell_deg))
+    dx_cells = int(round(d_lon / cell_deg))
 
     s2d    = s.reshape(N, N, 7)
     s_new  = np.roll(s2d, (dy_cells, dx_cells), axis=(0, 1))
@@ -200,6 +204,7 @@ class HurricaneFieldDataset(Dataset):
         n_storms:           int,
         grid_size:          int,
         n_steps_per_storm:  int = 10,
+        domain_radius_deg:  float = 8.0,
         seed:               int = 42,
     ):
         super().__init__()
@@ -217,7 +222,11 @@ class HurricaneFieldDataset(Dataset):
                 rng=rng,
             )
             for _ in range(n_steps_per_storm):
-                s_next, delta = advance_vortex(s, grid_size)
+                s_next, delta = advance_vortex(
+                    s,
+                    grid_size,
+                    domain_radius_deg=domain_radius_deg,
+                )
                 self.pairs.append((
                     torch.from_numpy(s.copy()),
                     torch.from_numpy(s_next.copy()),
@@ -316,8 +325,20 @@ class PIGNOTrainer:
         log.info("  Generating synthetic hurricane fields …")
         n_tr = int(cfg.n_synthetic_storms * 0.8)
         n_va = cfg.n_synthetic_storms - n_tr
-        tr_ds = HurricaneFieldDataset(n_tr, cfg.grid_size, cfg.n_steps_per_storm, cfg.seed)
-        va_ds = HurricaneFieldDataset(n_va, cfg.grid_size, cfg.n_steps_per_storm, cfg.seed + 1)
+        tr_ds = HurricaneFieldDataset(
+            n_storms=n_tr,
+            grid_size=cfg.grid_size,
+            n_steps_per_storm=cfg.n_steps_per_storm,
+            domain_radius_deg=cfg.domain_radius_deg,
+            seed=cfg.seed,
+        )
+        va_ds = HurricaneFieldDataset(
+            n_storms=n_va,
+            grid_size=cfg.grid_size,
+            n_steps_per_storm=cfg.n_steps_per_storm,
+            domain_radius_deg=cfg.domain_radius_deg,
+            seed=cfg.seed + 1,
+        )
 
         tr_loader = DataLoader(tr_ds, batch_size=cfg.batch_size, shuffle=True,  drop_last=True)
         va_loader = DataLoader(va_ds, batch_size=cfg.batch_size, shuffle=False, drop_last=False)
@@ -457,8 +478,11 @@ class PIGNOTrainer:
             "val_L_phys":      0.0,
             "val_track_rmse":  0.0,
             "val_R_adv":       0.0,
+            "val_R_diff":      0.0,
             "val_R_mass":      0.0,
             "val_R_wp":        0.0,
+            "val_R_cont":      0.0,
+            "val_R_nrg":       0.0,
         }
         n = 0
 
@@ -481,8 +505,11 @@ class PIGNOTrainer:
                 totals["val_L_phys"]     += losses["L_phys"].item()
                 totals["val_track_rmse"] += L_track.sqrt().item()
                 totals["val_R_adv"]      += losses["R_adv"].item()
+                totals["val_R_diff"]     += losses["R_diff"].item()
                 totals["val_R_mass"]     += losses["R_mass"].item()
                 totals["val_R_wp"]       += losses["R_wp"].item()
+                totals["val_R_cont"]     += losses["R_cont"].item()
+                totals["val_R_nrg"]      += losses["R_nrg"].item()
                 n += 1
 
         model.train()
@@ -496,7 +523,7 @@ class PIGNOTrainer:
         epoch:   int,
         metrics: Dict[str, float],
     ) -> None:
-        os.makedirs("checkpoints/physics", exist_ok=True)
+        os.makedirs(self.cfg.checkpoint_dir, exist_ok=True)
         torch.save(
             {
                 "epoch":   epoch,
@@ -504,7 +531,7 @@ class PIGNOTrainer:
                 "metrics": metrics,
                 "config":  vars(self.cfg),
             },
-            "checkpoints/physics/pigno_best.pt",
+            os.path.join(self.cfg.checkpoint_dir, "pigno_best.pt"),
         )
 
     # ── Pretty-print helpers ──────────────────────────────────────────────────
@@ -528,20 +555,20 @@ class PIGNOTrainer:
         d:          float,
         rho_final:  float,
     ) -> None:
-        os.makedirs("metrics/physics", exist_ok=True)
+        os.makedirs(cfg.metrics_dir, exist_ok=True)
 
         if train_log:
-            with open("metrics/physics/pigno_train_log.csv", "w", newline="") as f:
+            with open(os.path.join(cfg.metrics_dir, "pigno_train_log.csv"), "w", newline="") as f:
                 w = csv.DictWriter(f, fieldnames=list(train_log[0].keys()))
                 w.writeheader()
                 w.writerows(train_log)
 
         if val_log:
-            with open("metrics/physics/pigno_val_metrics.csv", "w", newline="") as f:
+            with open(os.path.join(cfg.metrics_dir, "pigno_val_metrics.csv"), "w", newline="") as f:
                 w = csv.DictWriter(f, fieldnames=list(val_log[0].keys()))
                 w.writeheader()
                 w.writerows(val_log)
-            print(f"  Metrics saved → metrics/physics/")
+            print(f"  Metrics saved → {cfg.metrics_dir}/")
 
         last_val   = val_log[-1]   if val_log   else {}
         last_train = train_log[-1] if train_log else {}
@@ -571,8 +598,8 @@ class PIGNOTrainer:
                 print(f"    {k:<22s}: {v:.6f}")
         print()
         print("  ── Checkpoints ───────────────────────────────────────────")
-        print("    Best   : checkpoints/physics/pigno_best.pt")
-        print("    Metrics: metrics/physics/")
+        print(f"    Best   : {cfg.checkpoint_dir}/pigno_best.pt")
+        print(f"    Metrics: {cfg.metrics_dir}/")
         print("═" * 64)
         print()
 
@@ -588,6 +615,10 @@ def main() -> None:
     p.add_argument("--lr",          type=float, default=None)
     p.add_argument("--n-storms",    type=int,   default=None)
     p.add_argument("--grid-size",   type=int,   default=None)
+    p.add_argument("--no-physics",  action="store_true",
+                   help="Set all physics loss weights to zero for ablation")
+    p.add_argument("--metrics-dir", type=str, default=None)
+    p.add_argument("--checkpoint-dir", type=str, default=None)
     args = p.parse_args()
 
     cfg = PIGNOConfig()
@@ -597,6 +628,15 @@ def main() -> None:
     if args.lr:         cfg.lr                  = args.lr
     if args.n_storms:   cfg.n_synthetic_storms  = args.n_storms
     if args.grid_size:  cfg.grid_size           = args.grid_size
+    if args.metrics_dir: cfg.metrics_dir        = args.metrics_dir
+    if args.checkpoint_dir: cfg.checkpoint_dir  = args.checkpoint_dir
+    if args.no_physics:
+        cfg.lambda_adv = 0.0
+        cfg.lambda_diff = 0.0
+        cfg.lambda_mass = 0.0
+        cfg.lambda_wp = 0.0
+        cfg.lambda_cont = 0.0
+        cfg.lambda_energy = 0.0
 
     PIGNOTrainer(cfg).run()
 

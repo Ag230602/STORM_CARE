@@ -126,7 +126,11 @@ class GraphDifferentialOps:
             grid_size      : N (number of points along one axis)
         """
         self.graph = graph
-        src, dst = graph.edge_index[0], graph.edge_index[1]
+        # graph.edge_index is stored as [dst, src] for message j -> i.
+        # A previous version unpacked this as (src, dst), reversing the
+        # finite-difference direction and scattering derivatives to the wrong
+        # nodes.
+        dst, src = graph.edge_index[0], graph.edge_index[1]
         self.src = src
         self.dst = dst
         N = graph.n_nodes
@@ -143,12 +147,12 @@ class GraphDifferentialOps:
         self.ex = -graph.edge_vec[:, 0] / (graph.edge_dist + eps)  # (E,)
         self.ey = -graph.edge_vec[:, 1] / (graph.edge_dist + eps)  # (E,)
 
-        # ── Physical scale factor ─────────────────────────────────────────
+        # ── Physical edge distances ───────────────────────────────────────
         # Normalised spacing: Δx_norm = 2/(N−1)
         # Physical spacing:   Δx_phys = grid_spacing_m
-        # Scale: normalised_gradient → physical = (N−1)/(2·grid_spacing_m)
+        # For an arbitrary k-NN edge, d_phys = d_norm / Δx_norm · Δx_phys.
         dx_norm = 2.0 / max(grid_size - 1, 1)
-        self.scale = dx_norm / grid_spacing_m                  # (1/m in physical)
+        self.edge_dist_phys = graph.edge_dist / dx_norm * grid_spacing_m
 
     # ── Internal helpers ───────────────────────────────────────────────────
 
@@ -185,8 +189,9 @@ class GraphDifferentialOps:
         ex = self.ex.view(1, -1, 1)
         ey = self.ey.view(1, -1, 1)
 
-        gx = self._scatter_to_dst(w * ex * diff) * self.scale  # (B, N, C)
-        gy = self._scatter_to_dst(w * ey * diff) * self.scale
+        inv_d = (1.0 / (self.edge_dist_phys + 1e-8)).view(1, -1, 1)
+        gx = self._scatter_to_dst(w * ex * diff * inv_d)  # (B, N, C)
+        gy = self._scatter_to_dst(w * ey * diff * inv_d)
         return gx, gy
 
     def laplacian(self, f: Tensor) -> Tensor:
@@ -202,7 +207,8 @@ class GraphDifferentialOps:
         f_j  = f[:, self.src, :]
         diff = f_j - f_i
         w    = self.w.view(1, -1, 1)
-        lap  = self._scatter_to_dst(w * diff) * (self.scale ** 2)
+        inv_d2 = (1.0 / (self.edge_dist_phys.pow(2) + 1e-8)).view(1, -1, 1)
+        lap  = self._scatter_to_dst(w * diff * inv_d2)
         return lap
 
     def divergence(self, u: Tensor, v: Tensor) -> Tensor:

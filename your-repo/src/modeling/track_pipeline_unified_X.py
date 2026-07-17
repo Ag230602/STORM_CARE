@@ -52,7 +52,6 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from sklearn.model_selection import train_test_split
 
 
 # ----------------------------
@@ -77,12 +76,15 @@ class CFG:
     lead_hours: Tuple[int, ...] = (6, 12, 24, 48)
 
     include_metadata: bool = True  # vmax, mslp
+    target_scale_deg: float = 10.0  # normalize future displacements for stable Gaussian NLL
 
     # Training (keep small for fast iteration; you can increase later)
     seed: int = 42
     batch_size: int = 16
     epochs_main: int = 20
     epochs_baseline: int = 12
+    val_ratio: float = 0.20
+    test_ratio: float = 0.20
     lr: float = 2e-4
     wd: float = 1e-4
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
@@ -114,6 +116,82 @@ def seed_all(seed: int):
 def ensure_dirs():
     os.makedirs(cfg.ckpt_dir, exist_ok=True)
     os.makedirs(cfg.metrics_dir, exist_ok=True)
+
+
+def split_sample_indices(n_samples: int, seed: Optional[int] = None, val_ratio: Optional[float] = None, test_ratio: Optional[float] = None):
+    if n_samples < 3:
+        raise ValueError("At least three samples are required for train/val/test splitting.")
+    seed = cfg.seed if seed is None else seed
+    val_ratio = cfg.val_ratio if val_ratio is None else val_ratio
+    test_ratio = cfg.test_ratio if test_ratio is None else test_ratio
+    rng = np.random.RandomState(seed)
+    idx = np.arange(n_samples)
+    rng.shuffle(idx)
+    n_test = max(1, int(n_samples * test_ratio))
+    n_val = max(1, int(n_samples * val_ratio))
+    if n_test + n_val >= n_samples:
+        n_val = max(1, n_samples - n_test - 1)
+    n_train = n_samples - n_val - n_test
+    if n_train <= 0:
+        raise ValueError(f"Invalid split sizes for n={n_samples}: train={n_train}, val={n_val}, test={n_test}")
+    return idx[:n_train], idx[n_train:n_train + n_val], idx[n_train + n_val:]
+
+
+def wrap_lon_delta(delta):
+    return ((delta + 180.0) % 360.0) - 180.0
+
+
+def wrap_lon_abs(lon):
+    return ((lon + 180.0) % 360.0) - 180.0
+
+
+def normalize_era5_patch(X: np.ndarray) -> np.ndarray:
+    X = np.asarray(X, dtype=np.float32)
+    X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
+    mean = X.mean(axis=(1, 2), keepdims=True)
+    std = X.std(axis=(1, 2), keepdims=True)
+    return ((X - mean) / np.maximum(std, 1e-6)).astype(np.float32)
+
+
+def normalize_past_track(past: np.ndarray) -> np.ndarray:
+    past = np.asarray(past, dtype=np.float32).copy()
+    past[:, 0] = past[:, 0] / 90.0
+    past[:, 1] = past[:, 1] / 180.0
+    return past.astype(np.float32)
+
+
+def normalize_meta(meta: Optional[np.ndarray]) -> np.ndarray:
+    if meta is None:
+        return np.zeros(2, dtype=np.float32)
+    vmax = float(meta[0]) if np.isfinite(meta[0]) and meta[0] > 0 else 0.0
+    mslp = float(meta[1]) if np.isfinite(meta[1]) and meta[1] > 800.0 else 950.0
+    return np.array([vmax / 150.0, (mslp - 950.0) / 80.0], dtype=np.float32)
+
+
+def normalize_target_delta(y_abs: np.ndarray, lat0: float, lon0: float) -> np.ndarray:
+    y_abs = np.asarray(y_abs, dtype=np.float32)
+    out = np.empty_like(y_abs, dtype=np.float32)
+    out[:, 0] = (y_abs[:, 0] - lat0) / cfg.target_scale_deg
+    out[:, 1] = wrap_lon_delta(y_abs[:, 1] - lon0) / cfg.target_scale_deg
+    return out
+
+
+def _batch_tensor(values, device):
+    if torch.is_tensor(values):
+        return values.to(device=device, dtype=torch.float32)
+    return torch.as_tensor(values, device=device, dtype=torch.float32)
+
+
+def decode_track_delta(mu_delta: torch.Tensor, sigma_delta: Optional[torch.Tensor], lat0, lon0):
+    lat0_t = _batch_tensor(lat0, mu_delta.device).view(-1, 1)
+    lon0_t = _batch_tensor(lon0, mu_delta.device).view(-1, 1)
+    lat = lat0_t + mu_delta[..., 0] * cfg.target_scale_deg
+    lon = torch.remainder(lon0_t + mu_delta[..., 1] * cfg.target_scale_deg + 180.0, 360.0) - 180.0
+    if sigma_delta is None:
+        return lat, lon, None, None
+    sig_lat = sigma_delta[..., 0] * cfg.target_scale_deg
+    sig_lon = sigma_delta[..., 1] * cfg.target_scale_deg
+    return lat, lon, sig_lat, sig_lon
 
 
 # ----------------------------
@@ -279,7 +357,7 @@ def build_samples(track_df: pd.DataFrame, era5_ds: xr.Dataset) -> List[Dict]:
     samples = []
     skipped = 0
 
-    for i in range(cfg.history_steps, len(track_df)):
+    for i in range(cfg.history_steps - 1, len(track_df)):
         if i + max(lead_steps) >= len(track_df):
             break
 
@@ -287,9 +365,9 @@ def build_samples(track_df: pd.DataFrame, era5_ds: xr.Dataset) -> List[Dict]:
         lat0 = float(track_df.loc[i, "lat"])
         lon0 = float(track_df.loc[i, "lon"])
 
-        # past positions (H,2) oldest->newest
+        # past positions (H,2) oldest->newest, including the current t0 state
         past = []
-        for k in range(cfg.history_steps, 0, -1):
+        for k in range(cfg.history_steps - 1, -1, -1):
             past.append([float(track_df.loc[i-k, "lat"]), float(track_df.loc[i-k, "lon"])])
         past = np.array(past, dtype=np.float32)
 
@@ -337,10 +415,12 @@ class TrackDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         s = self.samples[idx]
-        past = torch.from_numpy(s["past"])              # (H,2)
-        X = torch.from_numpy(s["X"])                    # (F,G,G)
-        y = torch.from_numpy(s["y_abs"])                # (L,2)
-        meta = torch.from_numpy(s["meta"]) if s["meta"] is not None else torch.zeros(2)
+        lat0 = float(s["lat0"])
+        lon0 = float(s["lon0"])
+        past = torch.from_numpy(normalize_past_track(s["past"]))       # (H,2)
+        X = torch.from_numpy(normalize_era5_patch(s["X"]))             # (F,G,G)
+        y = torch.from_numpy(normalize_target_delta(s["y_abs"], lat0, lon0))  # (L,2)
+        meta = torch.from_numpy(normalize_meta(s["meta"]))
         info = (s["storm_tag"], s["t0"], s["lat0"], s["lon0"])
         return past, X, meta, y, info
 
@@ -577,22 +657,23 @@ def evaluate_prob_model(model: nn.Module, loader) -> Dict[str, float]:
     landfall_err_hours = []
 
     for past, X, meta, y, info in loader:
+        _, _, lat0_info, lon0_info = info
         past = past.to(cfg.device)
         X = X.to(cfg.device)
         meta = meta.to(cfg.device)
         y = y.to(cfg.device)
 
         mu, sigma = model(past, X, meta)  # (B,L,2)
-        mu_lat, mu_lon = mu[..., 0], mu[..., 1]
-        sig_lat, sig_lon = sigma[..., 0], sigma[..., 1]
+        mu_lat, mu_lon, sig_lat, sig_lon = decode_track_delta(mu, sigma, lat0_info, lon0_info)
+        y_lat, y_lon, _, _ = decode_track_delta(y, None, lat0_info, lon0_info)
 
         for b in range(mu.size(0)):
-            lat0 = float(past[b, -1, 0].cpu())
-            lon0 = float(past[b, -1, 1].cpu())
+            lat0 = float(_batch_tensor(lat0_info, cfg.device)[b].cpu())
+            lon0 = float(_batch_tensor(lon0_info, cfg.device)[b].cpu())
 
             # landfall proxy: among lead points only
-            true_lat_seq = y[b, :, 0].cpu().numpy()
-            true_lon_seq = y[b, :, 1].cpu().numpy()
+            true_lat_seq = y_lat[b, :].cpu().numpy()
+            true_lon_seq = y_lon[b, :].cpu().numpy()
             pred_lat_seq = mu_lat[b, :].cpu().numpy()
             pred_lon_seq = mu_lon[b, :].cpu().numpy()
 
@@ -608,8 +689,8 @@ def evaluate_prob_model(model: nn.Module, loader) -> Dict[str, float]:
                 landfall_err_hours.append(abs(cfg.lead_hours[p_idx] - cfg.lead_hours[t_idx]))
 
             for li, h in enumerate(cfg.lead_hours):
-                lat_t = float(y[b, li, 0].cpu())
-                lon_t = float(y[b, li, 1].cpu())
+                lat_t = float(y_lat[b, li].cpu())
+                lon_t = float(y_lon[b, li].cpu())
                 lat_p = float(mu_lat[b, li].cpu())
                 lon_p = float(mu_lon[b, li].cpu())
 
@@ -690,11 +771,12 @@ def evaluate_persistence(te_ds: TrackDataset) -> Dict[str, float]:
 # ----------------------------
 # Training utilities
 # ----------------------------
-def train_prob_model(model: nn.Module, tr_loader, te_loader, epochs: int, name: str) -> Dict[str, float]:
+def train_prob_model(model: nn.Module, tr_loader, val_loader, test_loader, epochs: int, name: str) -> Dict[str, float]:
     model = model.to(cfg.device)
     opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.wd)
     best = float("inf")
     ckpt_path = os.path.join(cfg.ckpt_dir, f"{name}.pt")
+    best_epoch = None
 
     for ep in range(1, epochs + 1):
         model.train()
@@ -714,18 +796,26 @@ def train_prob_model(model: nn.Module, tr_loader, te_loader, epochs: int, name: 
             opt.step()
             losses.append(float(loss.item()))
 
-        metrics = evaluate_prob_model(model, te_loader)
-        mean_km = float(np.mean([metrics[f"track_km_{h}h"] for h in cfg.lead_hours]))
+        val_metrics = evaluate_prob_model(model, val_loader)
+        mean_km = float(np.mean([val_metrics[f"track_km_{h}h"] for h in cfg.lead_hours]))
 
-        print(f"{name} | Ep {ep:02d} | train_nll={np.mean(losses):.4f} | mean_track_km={mean_km:.2f} | landfall_err_h={metrics['landfall_time_err_hours']:.2f}")
+        print(f"{name} | Ep {ep:02d} | train_nll={np.mean(losses):.4f} | val_mean_track_km={mean_km:.2f} | val_landfall_err_h={val_metrics['landfall_time_err_hours']:.2f}")
         if mean_km < best:
             best = mean_km
-            torch.save({"state": model.state_dict(), "cfg": cfg.__dict__}, ckpt_path)
+            best_epoch = ep
+            torch.save({
+                "state": model.state_dict(),
+                "cfg": cfg.__dict__,
+                "selection_metric": "val_mean_track_km_6_48h",
+                "selection_score": best,
+                "selected_epoch": best_epoch,
+                "target_convention": "normalized_future_displacement_from_current_t0",
+            }, ckpt_path)
 
     # load best and return metrics
     ckpt = torch.load(ckpt_path, map_location=cfg.device)
     model.load_state_dict(ckpt["state"])
-    final_metrics = evaluate_prob_model(model, te_loader)
+    final_metrics = evaluate_prob_model(model, test_loader)
     print(f"[{name}] best checkpoint saved:", ckpt_path)
     return final_metrics
 
@@ -760,13 +850,15 @@ def main():
     if len(samples) < 30:
         print("WARNING: few samples. If needed, expand your ERA5 time window and rebuild.")
 
-    idx = np.arange(len(samples))
-    tr_idx, te_idx = train_test_split(idx, test_size=0.25, random_state=cfg.seed, shuffle=True)
+    tr_idx, val_idx, te_idx = split_sample_indices(len(samples), seed=cfg.seed)
 
     tr_ds = TrackDataset([samples[i] for i in tr_idx])
+    val_ds = TrackDataset([samples[i] for i in val_idx])
     te_ds = TrackDataset([samples[i] for i in te_idx])
+    print(f"Split: train={len(tr_ds)} val={len(val_ds)} test={len(te_ds)}")
 
     tr_loader = torch.utils.data.DataLoader(tr_ds, batch_size=cfg.batch_size, shuffle=True)
+    val_loader = torch.utils.data.DataLoader(val_ds, batch_size=cfg.batch_size, shuffle=False)
     te_loader = torch.utils.data.DataLoader(te_ds, batch_size=cfg.batch_size, shuffle=False)
 
     # ----------------------------
@@ -787,7 +879,7 @@ def main():
         leads=len(cfg.lead_hours),
         use_meta=cfg.include_metadata
     )
-    lstm_metrics = train_prob_model(lstm, tr_loader, te_loader, cfg.epochs_baseline, "baseline_lstm")
+    lstm_metrics = train_prob_model(lstm, tr_loader, val_loader, te_loader, cfg.epochs_baseline, "baseline_lstm")
     save_metrics_row(
         "LSTM (past + ERA5)",
         lstm_metrics,
@@ -802,7 +894,7 @@ def main():
         leads=len(cfg.lead_hours),
         use_meta=cfg.include_metadata
     )
-    trm_metrics = train_prob_model(trm, tr_loader, te_loader, cfg.epochs_baseline, "baseline_transformer")
+    trm_metrics = train_prob_model(trm, tr_loader, val_loader, te_loader, cfg.epochs_baseline, "baseline_transformer")
     save_metrics_row(
         "Transformer (past + ERA5)",
         trm_metrics,
@@ -817,7 +909,7 @@ def main():
         leads=len(cfg.lead_hours),
         use_meta=cfg.include_metadata
     )
-    main_metrics = train_prob_model(main_model, tr_loader, te_loader, cfg.epochs_main, "main_gno_dyngnn")
+    main_metrics = train_prob_model(main_model, tr_loader, val_loader, te_loader, cfg.epochs_main, "main_gno_dyngnn")
     save_metrics_row(
         "GNO+DynGNN (prob)",
         main_metrics,

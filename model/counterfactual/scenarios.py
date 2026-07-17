@@ -1,127 +1,124 @@
 """
-Counterfactual scenario definitions — latent-space z_override approach.
+Counterfactual scenario definitions.
 
-Design: each function returns a z_override Tensor (d_latent,) that is
-ADDED to the latent state z after the warm-up phase, before the prior
-rollout begins.  Direct latent manipulation guarantees the correct causal
-sign — harmful interventions raise exposure/hazard dims, beneficial ones
-lower them.
+Scenarios are encoded as branch-point interventions on the observed disaster
+state before RSSM posterior encoding.  The intervention never edits decoded
+rollout outputs.  Outcome changes must therefore propagate through:
 
-Eight scenarios
----------------
-  baseline              No intervention
-  early_evacuation_12h  Evacuation 12 h earlier  (exposure −40%)
-  early_evacuation_24h  Evacuation 24 h earlier  (exposure −60%)
-  early_evacuation_36h  Evacuation 36 h earlier  (exposure −80%)
-  shelter_failure       Shelter unavailable       (resource −50%, exposure +30%)
-  storm_intensification Storm +20% intensity      (hazard +20%, exposure +15%)
-  extra_resources       Deploy extra capacity     (resource +40%)
-  route_failure         Transport network fails   (infra −40%, exposure +25%)
-
-Monotonicity test: peak_exposure(12h) ≥ peak_exposure(24h) ≥ peak_exposure(36h)
+    intervened warm-up state -> posterior latent state -> prior rollout -> decoder
 """
 from __future__ import annotations
-from typing import Optional
-import torch
-from torch import Tensor
+
+from dataclasses import dataclass
+from typing import Dict
+
 from .config import CounterfactualConfig
 
 
-def _zeros(cfg: CounterfactualConfig) -> Tensor:
-    return torch.zeros(cfg.d_latent)
+@dataclass(frozen=True)
+class InterventionSpec:
+    """Additive do-operator applied to semantic slices of the warm-up state."""
+
+    hazard_delta: float = 0.0
+    infra_delta: float = 0.0
+    exposure_delta: float = 0.0
+    resource_delta: float = 0.0
+    warmup_fraction: float = 1.0
 
 
-def baseline(cfg: CounterfactualConfig) -> Optional[Tensor]:
-    return None
+def baseline(cfg: CounterfactualConfig) -> InterventionSpec:
+    return InterventionSpec()
 
 
-def early_evacuation_12h(cfg: CounterfactualConfig) -> Tensor:
-    """Evacuation 12 h earlier — exposure dims −40%."""
-    z = _zeros(cfg)
-    for d in cfg.exposure_dims:
-        z[d] = -cfg.evac_boost * 4.0      # scaled to dominate prior dynamics
-    return z
+def earlier_evacuation(cfg: CounterfactualConfig) -> InterventionSpec:
+    return InterventionSpec(
+        exposure_delta=-cfg.evac_exposure_delta,
+        resource_delta=-0.25 * cfg.evac_exposure_delta,
+        warmup_fraction=1.0,
+    )
 
 
-def early_evacuation_24h(cfg: CounterfactualConfig) -> Tensor:
-    """Evacuation 24 h earlier — exposure dims −60%."""
-    z = _zeros(cfg)
-    for d in cfg.exposure_dims:
-        z[d] = -cfg.evac_boost * 6.0
-    return z
+def delayed_evacuation(cfg: CounterfactualConfig) -> InterventionSpec:
+    return InterventionSpec(
+        exposure_delta=cfg.delayed_evac_exposure_delta,
+        resource_delta=-0.15 * cfg.delayed_evac_exposure_delta,
+        warmup_fraction=1.0,
+    )
 
 
-def early_evacuation_36h(cfg: CounterfactualConfig) -> Tensor:
-    """Evacuation 36 h earlier — exposure dims −80%."""
-    z = _zeros(cfg)
-    for d in cfg.exposure_dims:
-        z[d] = -cfg.evac_boost * 8.0
-    return z
+def shelter_failure(cfg: CounterfactualConfig) -> InterventionSpec:
+    return InterventionSpec(
+        infra_delta=0.04,
+        exposure_delta=0.06,
+        resource_delta=-cfg.shelter_failure_resource_delta,
+        warmup_fraction=1.0,
+    )
 
 
-def extra_resources(cfg: CounterfactualConfig) -> Tensor:
-    """Pre-position extra hospital/shelter capacity — resource dims boosted."""
-    z = _zeros(cfg)
-    rd   = cfg.resource_dims
-    half = max(len(rd) // 2, 1)
-    for d in rd[:half]:
-        z[d] = +cfg.resource_hospital_boost * 2.0
-    for d in rd[half:]:
-        z[d] = +cfg.resource_shelter_boost  * 2.0
-    return z
+def hospital_failure(cfg: CounterfactualConfig) -> InterventionSpec:
+    return InterventionSpec(
+        infra_delta=cfg.hospital_failure_infra_delta,
+        resource_delta=-cfg.hospital_failure_resource_delta,
+        warmup_fraction=1.0,
+    )
 
 
-def shelter_failure(cfg: CounterfactualConfig) -> Tensor:
-    """Shelter unavailable — resources drop, displaced people stay exposed."""
-    z = _zeros(cfg)
-    for d in cfg.resource_dims:
-        z[d] = -2.5                      # strong resource loss
-    for d in cfg.exposure_dims:
-        z[d] = +1.5                      # displaced pop remains exposed
-    return z
+def road_blockage(cfg: CounterfactualConfig) -> InterventionSpec:
+    return InterventionSpec(
+        infra_delta=cfg.road_blockage_infra_delta,
+        exposure_delta=cfg.road_blockage_exposure_delta,
+        resource_delta=-cfg.road_blockage_resource_delta,
+        warmup_fraction=1.0,
+    )
 
 
-def storm_intensification(cfg: CounterfactualConfig) -> Tensor:
-    """Storm +20% intensity — hazard up, wider exposure footprint."""
-    z = _zeros(cfg)
-    delta = (cfg.storm_intensity_scale - 1.0) * 5.0   # 0.20 * 5 = 1.0
-    for d in cfg.hazard_dims:
-        z[d] = +delta
-    for d in cfg.exposure_dims:
-        z[d] = +delta * 0.75
-    return z
+def intensity_increase(cfg: CounterfactualConfig) -> InterventionSpec:
+    return InterventionSpec(
+        hazard_delta=cfg.intensity_delta,
+        infra_delta=0.25 * cfg.intensity_delta,
+        exposure_delta=0.35 * cfg.intensity_delta,
+        warmup_fraction=1.0,
+    )
 
 
-def route_failure(cfg: CounterfactualConfig) -> Tensor:
-    """Transport routes fail — infra degraded, trapped population exposed."""
-    z = _zeros(cfg)
-    for d in cfg.infra_dims:
-        z[d] = -2.0                      # infrastructure collapse
-    for d in cfg.exposure_dims:
-        z[d] = +1.25                     # trapped population
-    return z
+def intensity_decrease(cfg: CounterfactualConfig) -> InterventionSpec:
+    return InterventionSpec(
+        hazard_delta=-cfg.intensity_delta,
+        infra_delta=-0.20 * cfg.intensity_delta,
+        exposure_delta=-0.30 * cfg.intensity_delta,
+        warmup_fraction=1.0,
+    )
 
 
-SCENARIO_OVERRIDES = {
-    "baseline":              baseline,
-    "early_evacuation_12h":  early_evacuation_12h,
-    "early_evacuation_24h":  early_evacuation_24h,
-    "early_evacuation_36h":  early_evacuation_36h,
-    "shelter_failure":       shelter_failure,
-    "storm_intensification": storm_intensification,
-    "extra_resources":       extra_resources,
-    "route_failure":         route_failure,
+def additional_emergency_resources(cfg: CounterfactualConfig) -> InterventionSpec:
+    return InterventionSpec(
+        exposure_delta=-0.20 * cfg.additional_resource_delta,
+        resource_delta=cfg.additional_resource_delta,
+        warmup_fraction=1.0,
+    )
+
+
+SCENARIO_INTERVENTIONS = {
+    "baseline": baseline,
+    "earlier_evacuation": earlier_evacuation,
+    "delayed_evacuation": delayed_evacuation,
+    "shelter_failure": shelter_failure,
+    "hospital_failure": hospital_failure,
+    "road_blockage": road_blockage,
+    "intensity_increase": intensity_increase,
+    "intensity_decrease": intensity_decrease,
+    "additional_emergency_resources": additional_emergency_resources,
 }
 
-SCENARIO_DESCRIPTIONS = {
-    "baseline":              "No intervention (reference trajectory)",
-    "early_evacuation_12h":  "Evacuation ordered 12 h early  (exposure −40%)",
-    "early_evacuation_24h":  "Evacuation ordered 24 h early  (exposure −60%)",
-    "early_evacuation_36h":  "Evacuation ordered 36 h early  (exposure −80%)",
-    "shelter_failure":       "Shelter unavailable: resource −50%, exposure +30%",
-    "storm_intensification": "Storm intensity +20%: hazard +20%, exposure +15%",
-    "extra_resources":       "Pre-positioned resources: hospital +50%, shelter +30%",
-    "route_failure":         "Transport network fails: infra −40%, exposure +25%",
+
+SCENARIO_DESCRIPTIONS: Dict[str, str] = {
+    "baseline": "No intervention; learned world-model rollout from observed warm-up",
+    "earlier_evacuation": "Earlier evacuation branch-state intervention",
+    "delayed_evacuation": "Delayed evacuation branch-state intervention",
+    "shelter_failure": "Shelter capacity failure branch-state intervention",
+    "hospital_failure": "Hospital service failure branch-state intervention",
+    "road_blockage": "Road blockage / transport disruption branch-state intervention",
+    "intensity_increase": "Storm intensity increase branch-state intervention",
+    "intensity_decrease": "Storm intensity decrease branch-state intervention",
+    "additional_emergency_resources": "Additional emergency resources branch-state intervention",
 }
-
-

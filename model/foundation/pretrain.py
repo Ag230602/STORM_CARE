@@ -253,13 +253,10 @@ class PretrainRunner:
                 "No StormRecord objects built. Check data paths in FoundationConfig."
             )
 
-        # Train/val split (80 / 20) by storm — not by window — to avoid leakage
-        rng = np.random.RandomState(cfg.seed)
-        idx = np.arange(len(records))
-        rng.shuffle(idx)
-        n_val = max(1, int(len(records) * 0.20))
-        train_recs = [records[i] for i in idx[n_val:]]
-        val_recs   = [records[i] for i in idx[:n_val]]
+        # Train/val split by storm identity group — not by window or source record —
+        # to avoid leakage when the same named storm appears in multiple sources.
+        train_recs, val_recs, split_audit = self._split_records(records)
+        self._write_split_manifest(train_recs, val_recs, split_audit)
 
         train_ds = StormSequenceDataset(train_recs, cfg)
         val_ds   = StormSequenceDataset(val_recs,   cfg)
@@ -301,7 +298,8 @@ class PretrainRunner:
         evaluator  = FoundationEvaluator(model, cfg)
 
         # ── 4. Training loop ──────────────────────────────────────────────
-        best_loss   = float("inf")
+        best_val_score = float("inf")
+        best_epoch = None
         epoch_log: List[Dict] = []
 
         for epoch in range(1, cfg.epochs + 1):
@@ -358,25 +356,29 @@ class PretrainRunner:
                 f"t={elapsed:.1f}s"
             )
 
-            # ── Checkpoint best ─────────────────────────────────────────
-            if avg["loss"] < best_loss:
-                best_loss = avg["loss"]
-                ckpt_path = os.path.join(cfg.ckpt_dir, "foundation_best.pt")
-                torch.save({
-                    "epoch":      epoch,
-                    "state_dict": model.state_dict(),
-                    "cfg":        cfg.__dict__,
-                    "loss":       best_loss,
-                }, ckpt_path)
+            # ── Evaluate every epoch using one fixed validation protocol ─
+            if len(val_ds) > 0:
+                val_metrics = evaluator.evaluate(val_loader)
+                val_metrics["epoch"] = epoch
+                val_metrics["selection_metric"] = "mean_track_err_km"
+                val_metrics["selection_score"] = self._selection_score(val_metrics, cfg)
+                val_metrics.update({f"train_{k}": v for k, v in avg.items()})
+                epoch_log.append(val_metrics)
+                evaluator.print_table(val_metrics, epoch)
 
-            # ── Evaluate every 2 epochs (or last epoch) ─────────────────
-            if epoch % 2 == 0 or epoch == cfg.epochs:
-                if len(val_ds) > 0:
-                    val_metrics = evaluator.evaluate(val_loader)
-                    val_metrics["epoch"] = epoch
-                    val_metrics.update({f"train_{k}": v for k, v in avg.items()})
-                    epoch_log.append(val_metrics)
-                    evaluator.print_table(val_metrics, epoch)
+                if val_metrics["selection_score"] < best_val_score:
+                    best_val_score = val_metrics["selection_score"]
+                    best_epoch = epoch
+                    ckpt_path = os.path.join(cfg.ckpt_dir, "foundation_best.pt")
+                    torch.save({
+                        "epoch":           epoch,
+                        "state_dict":      model.state_dict(),
+                        "cfg":             cfg.__dict__,
+                        "selection_metric": val_metrics["selection_metric"],
+                        "selection_score":  best_val_score,
+                        "metrics":          val_metrics,
+                        "split_audit":      split_audit,
+                    }, ckpt_path)
 
         # ── 5. Final save + report ─────────────────────────────────────────
         final_ckpt = os.path.join(cfg.ckpt_dir, "foundation_final.pt")
@@ -385,6 +387,12 @@ class PretrainRunner:
             "state_dict": model.state_dict(),
             "cfg":        cfg.__dict__,
         }, final_ckpt)
+
+        selected_metrics = {}
+        for row in epoch_log:
+            row["selected_checkpoint"] = bool(row.get("epoch") == best_epoch)
+            if row["selected_checkpoint"]:
+                selected_metrics = row
 
         evaluator.save_metrics_csv(
             epoch_log, cfg.metrics_dir, "foundation_eval_metrics.csv"
@@ -396,16 +404,89 @@ class PretrainRunner:
             os.path.join(cfg.metrics_dir, "foundation_train_log.csv"), index=False
         )
 
-        final_metrics = epoch_log[-1] if epoch_log else {}
+        final_metrics = selected_metrics if selected_metrics else (epoch_log[-1] if epoch_log else {})
         self._print_final_report(cfg, records, train_ds, val_ds, n_params,
-                                 best_loss, final_metrics)
+                                 best_val_score, final_metrics, split_audit)
         return final_metrics
 
     # ── Private helpers ────────────────────────────────────────────────────
 
     @staticmethod
+    def _record_group_key(rec) -> str:
+        name = (rec.storm_name or rec.storm_id or "UNKNOWN").strip().upper()
+        return f"{rec.basin}|{rec.year}|{name}"
+
+    def _split_records(self, records):
+        cfg = self.cfg
+        groups: Dict[str, List] = {}
+        for rec in records:
+            groups.setdefault(self._record_group_key(rec), []).append(rec)
+
+        keys = np.array(sorted(groups))
+        rng = np.random.RandomState(cfg.seed)
+        rng.shuffle(keys)
+        n_val = max(1, int(len(keys) * 0.20))
+        val_keys = set(keys[:n_val])
+        train_recs, val_recs = [], []
+        for key, recs in groups.items():
+            (val_recs if key in val_keys else train_recs).extend(recs)
+
+        train_ids = {r.storm_id for r in train_recs}
+        val_ids = {r.storm_id for r in val_recs}
+        train_group_keys = {self._record_group_key(r) for r in train_recs}
+        val_group_keys = {self._record_group_key(r) for r in val_recs}
+        audit = {
+            "split_unit": "basin|year|storm_name",
+            "seed": cfg.seed,
+            "n_records": len(records),
+            "n_groups": len(groups),
+            "n_train_records": len(train_recs),
+            "n_val_records": len(val_recs),
+            "n_train_groups": len(train_group_keys),
+            "n_val_groups": len(val_group_keys),
+            "storm_id_overlap": sorted(train_ids & val_ids),
+            "group_key_overlap": sorted(train_group_keys & val_group_keys),
+        }
+        if audit["storm_id_overlap"] or audit["group_key_overlap"]:
+            raise RuntimeError(f"Foundation split leakage detected: {audit}")
+        return train_recs, val_recs, audit
+
+    def _write_split_manifest(self, train_recs, val_recs, audit) -> None:
+        cfg = self.cfg
+        rows = []
+        for split, recs in [("train", train_recs), ("val", val_recs)]:
+            for rec in recs:
+                rows.append({
+                    "split": split,
+                    "group_key": self._record_group_key(rec),
+                    "storm_id": rec.storm_id,
+                    "storm_name": rec.storm_name,
+                    "year": rec.year,
+                    "basin": rec.basin,
+                    "source": rec.source,
+                    "n_observations": rec.T,
+                    "n_era5_observations": int(rec.era5_valid.sum()),
+                })
+        pd.DataFrame(rows).to_csv(
+            os.path.join(cfg.metrics_dir, "foundation_split_manifest.csv"),
+            index=False,
+        )
+        with open(os.path.join(cfg.metrics_dir, "foundation_split_audit.json"), "w") as fh:
+            json.dump(audit, fh, indent=2)
+
+    @staticmethod
+    def _selection_score(metrics: Dict[str, float], cfg: FoundationConfig) -> float:
+        vals = []
+        for lead_step in cfg.lead_steps:
+            key = f"track_err_km_{lead_step * 6}h"
+            value = metrics.get(key)
+            if value is not None and math.isfinite(float(value)):
+                vals.append(float(value))
+        return float(np.mean(vals)) if vals else float("inf")
+
+    @staticmethod
     def _print_final_report(
-        cfg, records, train_ds, val_ds, n_params, best_loss, metrics
+        cfg, records, train_ds, val_ds, n_params, best_val_score, metrics, split_audit
     ):
         total_obs = sum(r.T for r in records)
         era5_obs  = sum(int(r.era5_valid.sum()) for r in records)
@@ -416,6 +497,7 @@ class PretrainRunner:
         print()
         print("  ── Dataset ──────────────────────────────────────────────")
         print(f"    Storms       : {len(records):,}")
+        print(f"    Split groups : train={split_audit['n_train_groups']:,}  val={split_audit['n_val_groups']:,}")
         print(f"    Observations : {total_obs:,}")
         print(f"    ERA5-enhanced: {era5_obs:,}  ({100*era5_obs/max(total_obs,1):.1f}%)")
         print(f"    Train windows: {len(train_ds):,}")
@@ -424,7 +506,7 @@ class PretrainRunner:
         print("  ── Model ────────────────────────────────────────────────")
         print(f"    Architecture : {cfg.summary()}")
         print(f"    Parameters   : {n_params:,}")
-        print(f"    Best train loss: {best_loss:.4f}")
+        print(f"    Best val selection score: {best_val_score:.4f}")
         print()
         print("  ── Architecture Diagram (Mermaid) ───────────────────────")
         print("    See module docstring or render pretrain.py header in")

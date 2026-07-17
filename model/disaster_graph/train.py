@@ -18,7 +18,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .config import DisasterGraphConfig
-from .schema import build_dataset, DisasterScenario, generate_humanitarian_report
+from .schema import build_dataset, DisasterScenario, generate_humanitarian_report, humanitarian_targets
 from .architecture import DisasterGNN
 
 logging.basicConfig(
@@ -128,6 +128,30 @@ class DisasterGraphTrainer:
             storm_pos     = sc.storm_pos,
         )
 
+    def _loss(self, model: DisasterGNN, sc: DisasterScenario) -> tuple[torch.Tensor, Dict[str, float]]:
+        out = model(sc)
+        tgt = humanitarian_targets(self.cfg, sc)
+        losses = {
+            "damage": F.mse_loss(out["damage_scores"], sc.targets),
+            "child": F.mse_loss(out["child_exposure"], tgt["child_exposure_frac"].to(self.device)),
+            "school": F.binary_cross_entropy(
+                out["school_disruption"].clamp(1e-6, 1.0 - 1e-6),
+                tgt["school_disrupted"].to(self.device),
+            ),
+            "hospital": F.mse_loss(out["hospital_access"], tgt["hospital_access"].to(self.device)),
+            "shelter": F.mse_loss(out["shelter_demand"], tgt["shelter_demand"].to(self.device)),
+            "priority": F.mse_loss(out["recovery_priority"], tgt["recovery_priority"].to(self.device)),
+        }
+        total = (
+            losses["damage"]
+            + 0.5 * losses["child"]
+            + 0.25 * losses["school"]
+            + 0.5 * losses["hospital"]
+            + 0.25 * losses["shelter"]
+            + 0.25 * losses["priority"]
+        )
+        return total, {k: float(v.detach().cpu()) for k, v in losses.items()}
+
     def _save_checkpoint(
         self, model: DisasterGNN, epoch: int, metrics: Dict
     ) -> None:
@@ -190,8 +214,7 @@ class _PatchedTrainer(DisasterGraphTrainer):
             for sc_steps in tr_sc:
                 for sc in sc_steps:
                     sc_d = self._to_device(sc)
-                    out  = model(sc_d)
-                    loss = F.mse_loss(out["damage_scores"], sc_d.targets)
+                    loss, _ = self._loss(model, sc_d)
                     optim.zero_grad()
                     loss.backward()
                     nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -206,8 +229,8 @@ class _PatchedTrainer(DisasterGraphTrainer):
                 for sc_steps in va_sc:
                     for sc in sc_steps:
                         sc_d = self._to_device(sc)
-                        out  = model(sc_d)
-                        va_total += F.mse_loss(out["damage_scores"], sc_d.targets).item()
+                        loss, _ = self._loss(model, sc_d)
+                        va_total += loss.item()
                         va_n += 1
             va_loss = va_total / max(va_n, 1)
 

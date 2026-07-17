@@ -3,7 +3,7 @@ Module 5 — Counterfactual Reasoning Engine runner.
 
 1. Loads (or trains) the WorldModel checkpoint from Module 4.
 2. Generates a synthetic warm-up disaster-state sequence.
-3. Runs all 5 counterfactual scenarios + baseline.
+3. Runs all counterfactual scenarios + baseline on the held-out test split.
 4. Prints a formatted comparison table.
 5. Saves outcome metrics to metrics/counterfactual/.
 
@@ -63,6 +63,9 @@ def _load_or_train_world_model(
 def main() -> None:
     p = argparse.ArgumentParser(description="Module 5 — Counterfactual Reasoning")
     p.add_argument("--demo", action="store_true")
+    p.add_argument("--n-test", type=int, default=None,
+                   help="Optional cap on held-out test sequences; default uses all")
+    p.add_argument("--metrics-dir", type=str, default=None)
     args = p.parse_args()
 
     cf_cfg = CounterfactualConfig()
@@ -73,33 +76,49 @@ def main() -> None:
         # Keep dims consistent
         cf_cfg.d_disaster_state = wm_cfg.d_disaster_state
         cf_cfg.d_latent         = wm_cfg.d_latent
+    if args.n_test is not None:
+        cf_cfg.n_test_sequences = args.n_test
+    if args.metrics_dir:
+        cf_cfg.metrics_dir = args.metrics_dir
 
     log.info("=" * 60)
     log.info("  Module 5 — Counterfactual Reasoning Engine")
     log.info("=" * 60)
-    log.info(f"  Config : {cf_cfg}")
 
     # ── Load WorldModel ───────────────────────────────────────────────────────
     world_model, wm_cfg_loaded = _load_or_train_world_model(wm_cfg, args.demo)
 
-    # ── Generate N warm-up sequences (one per test storm) ────────────────────
-    N_test = 5
-    T_warm = cf_cfg.n_initial_steps
-    d_s    = wm_cfg_loaded.d_disaster_state
-    log.info(f"  Generating {N_test} test-storm warm-up sequences …")
-    warm_up_seqs = []
-    for i in range(N_test):
-        seq = _make_sequences(1, T_warm, d_s, seed=cf_cfg.seed + i * 7)
-        warm_up_seqs.append(seq[0])          # (T_warm, d_s)
+    # If the available checkpoint is demo-sized, keep counterfactual rollout
+    # dimensions aligned even when the user did not pass --demo.
+    if wm_cfg_loaded.demo and not cf_cfg.demo:
+        cf_cfg.apply_demo_overrides()
 
     # Update cf_cfg dims to match loaded model
+    d_s    = wm_cfg_loaded.d_disaster_state
     cf_cfg.d_disaster_state = d_s
     cf_cfg.d_latent         = wm_cfg_loaded.d_latent
+    T_warm = min(cf_cfg.n_initial_steps, wm_cfg_loaded.n_steps_train)
+    log.info(f"  Config : {cf_cfg}")
 
-    # ── Run analytic counterfactuals over all test storms ────────────────────
+    # ── Generate complete held-out test split ────────────────────────────────
+    all_seqs = _make_sequences(
+        wm_cfg_loaded.n_sequences,
+        wm_cfg_loaded.n_steps_train,
+        d_s,
+        seed=wm_cfg_loaded.seed,
+    )
+    split_idx = int(len(all_seqs) * 0.8)
+    test_seqs = all_seqs[split_idx:]
+    if cf_cfg.n_test_sequences is not None:
+        test_seqs = test_seqs[:cf_cfg.n_test_sequences]
+    warm_up_seqs = [seq[:T_warm] for seq in test_seqs]
+    n_storms = len(warm_up_seqs)
+    log.info(f"  Running counterfactuals on {n_storms} held-out test sequences …")
+
+    # ── Run RSSM-mediated counterfactuals over all test storms ───────────────
     engine  = CounterfactualEngine(world_model, cf_cfg)
-    results = engine.compare_analytic_multi_storm(warm_up_seqs)
-    n_storms = N_test
+    results = engine.compare_multi_storm(warm_up_seqs)
+    mirror_checks = engine.direct_mirror_diagnostics(results)
 
     # ── Print report ──────────────────────────────────────────────────────────
     CounterfactualEngine.print_report(results, n_storms=n_storms)
@@ -110,6 +129,7 @@ def main() -> None:
     for name, res in results.items():
         row = {"scenario": name, "description": res["description"]}
         row.update(res["metrics"])
+        row["n_test_sequences"] = res.get("n_storms", n_storms)
         rows.append(row)
 
     out_path = os.path.join(cf_cfg.metrics_dir, "counterfactual_outcomes.csv")
@@ -117,7 +137,13 @@ def main() -> None:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         w.writeheader(); w.writerows(rows)
 
+    diag_path = os.path.join(cf_cfg.metrics_dir, "counterfactual_mirror_diagnostics.csv")
+    with open(diag_path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(mirror_checks[0].keys()))
+        w.writeheader(); w.writerows(mirror_checks)
+
     log.info(f"  Outcomes saved → {out_path}")
+    log.info(f"  Mirror diagnostics saved → {diag_path}")
     log.info("  Module 5 complete.")
 
 
