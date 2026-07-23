@@ -124,3 +124,39 @@ pretraining result.
   observations out of 11,087 total observations, or 0.8%.
 - The selected checkpoint is from a 2-epoch CPU demo. It should not be compared
   to older longer-run claims.
+
+## Addendum (2026-07-23): Extended 20-Epoch Rerun
+
+Reran pretraining for 20 epochs instead of 2 (`.venv/bin/python -m model.foundation.pretrain --demo --epochs 20`) to check for cheap gains from longer training, per reviewer request. Validation selection score improved every single epoch, from `1018.6468` (epoch 1) to `860.1958` (epoch 20) — no overfitting observed in this run length. Epoch 20 is now the selected checkpoint.
+
+Selected validation metrics, epoch 20 (`metrics/foundation/foundation_eval_metrics.csv`):
+
+| Metric | Epoch 2 (previous) | Epoch 20 (current) |
+| --- | ---: | ---: |
+| `track_err_km_6h` | 143.4044 | 106.8845 |
+| `track_err_km_12h` | 287.9981 | 231.0135 |
+| `track_err_km_24h` | 582.0694 | 509.3300 |
+| `track_err_km_48h` | 1125.2586 | 954.1142 |
+| `track_err_km_72h` | 1566.3819 | 1357.8206 |
+| `track_err_km_120h` | 2326.3788 | 2002.0120 |
+| `cone_p90_6h` | 0.8320 | 0.8908 |
+| `cone_p90_12h` | 0.7013 | 0.9134 |
+| `cone_p90_24h` | 0.2968 | 0.8858 |
+| `cone_p90_48h` | 0.1082 | 0.8454 |
+| `cone_p90_72h` | 0.0710 | 0.7160 |
+| `cone_p90_120h` | 0.0420 | 0.4874 |
+
+Track error improved at every horizon on this rerun (the 20-epoch checkpoint
+strictly beats the 2-epoch checkpoint here, unlike Module 2/5 where longer
+runs traded off different metrics). P90 cone coverage improved dramatically at
+every horizon and is now much closer to nominal calibration (target 0.90) at
+6-48h, though it still under-covers materially beyond 48h (0.72 at 72h, 0.49
+at 120h vs. target 0.90). This is a substantially better-calibrated checkpoint
+than the 2-epoch demo, but is still a short CPU demo, not the full ~50-epoch
+run described in `model/foundation/pretrain.py`'s computational-requirements
+docstring (~4-8 GPU-hours on an A100).
+
+Regenerated: `metrics/foundation/*`, `tables/table_foundation_model_training.csv`,
+`tables/table_calibration_cone_coverage.csv`, `figures/calibration.png/.pdf`,
+`results/module1_foundation/`. Calibration consistency audit re-passed for the
+new selected epoch (`reports/calibration_consistency_audit.md`).

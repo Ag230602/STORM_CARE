@@ -1,6 +1,6 @@
 {
   "variant": "no_physics",
-  "computational_cost_s": 50.33,
+  "computational_cost_s": 54.71,
   "runtime_protocol": "fresh 20-epoch demo no-physics PI-GNO training",
   "metrics_dir": "metrics/ablations/no_physics_runtime",
   "checkpoint_dir": "checkpoints/ablations/no_physics_runtime"

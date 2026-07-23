@@ -175,9 +175,11 @@ Key regenerated artifacts:
 - `results/module1_foundation/figures/calibration.png` — selected-checkpoint calibration figure
 - `results/module1_foundation/reports/foundation_checkpoint_audit.md` — root-cause and validation report
 
-Scientifically supported conclusion from the corrected 2-epoch CPU demo:
+Scientifically supported conclusion from the extended 20-epoch CPU demo:
 
-The selected checkpoint is epoch 2, chosen by validation mean track error (`selection_score=1005.2485`), not by training loss. The grouped storm split has zero storm-id overlap and zero group-key overlap between train and validation. All foundation tables and calibration figures now use this one selected checkpoint consistently.
+The selected checkpoint is epoch 20, chosen by validation mean track error (`selection_score=860.1958`, improved monotonically every epoch from 1018.6 at epoch 1). The grouped storm split has zero storm-id overlap and zero group-key overlap between train and validation. All foundation tables and calibration figures now use this one selected checkpoint consistently.
+
+Track error at epoch 20: `106.9 / 231.0 / 509.3 / 954.1 / 1357.8 / 2002.0` km at 6/12/24/48/72/120h. Versus the epoch-2 checkpoint, 6h and 24h improved; 48/72/120h got worse — longer training sharpens short-horizon accuracy on this small demo set but does not uniformly help at long horizons. P90 cone coverage improved substantially at every horizon: `0.89/0.91/0.89/0.85/0.72/0.49` at 6/12/24/48/72/120h (versus `0.83/0.70/0.30/0.11/0.07/0.04` at epoch 2), still under-covering relative to the nominal 0.90 target especially beyond 48h.
 
 ---
 

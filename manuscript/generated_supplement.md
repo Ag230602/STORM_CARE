@@ -14,7 +14,7 @@ Dataset integrity status: `PASS`.
 ## Calibration Integrity
 
 Calibration audit status: `PASS`.
-Selected checkpoint epoch: `2`.
+Selected checkpoint epoch: `20`.
 
 ## Generated Figures
 

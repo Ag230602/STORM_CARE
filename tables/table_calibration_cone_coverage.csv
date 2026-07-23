@@ -1,7 +1,7 @@
-lead_time_h,cone_p50_ep2,cone_p90_ep2,ideal_p50,ideal_p90,source_csv
-6,0.6723,0.8319,0.5,0.9,metrics/foundation/foundation_eval_metrics.csv
-12,0.4069,0.7013,0.5,0.9,metrics/foundation/foundation_eval_metrics.csv
-24,0.0959,0.2968,0.5,0.9,metrics/foundation/foundation_eval_metrics.csv
-48,0.0309,0.1082,0.5,0.9,metrics/foundation/foundation_eval_metrics.csv
-72,0.0118,0.071,0.5,0.9,metrics/foundation/foundation_eval_metrics.csv
-120,0.0084,0.042,0.5,0.9,metrics/foundation/foundation_eval_metrics.csv
+lead_time_h,cone_p50_ep20,cone_p90_ep20,ideal_p50,ideal_p90,source_csv
+6,0.5882,0.8908,0.5,0.9,metrics/foundation/foundation_eval_metrics.csv
+12,0.5758,0.9134,0.5,0.9,metrics/foundation/foundation_eval_metrics.csv
+24,0.4886,0.8858,0.5,0.9,metrics/foundation/foundation_eval_metrics.csv
+48,0.4278,0.8454,0.5,0.9,metrics/foundation/foundation_eval_metrics.csv
+72,0.3314,0.716,0.5,0.9,metrics/foundation/foundation_eval_metrics.csv
+120,0.2101,0.4874,0.5,0.9,metrics/foundation/foundation_eval_metrics.csv
