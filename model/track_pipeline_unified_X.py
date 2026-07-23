@@ -617,6 +617,132 @@ class TransformerTrackBaseline(nn.Module):
         return self.head(h)
 
 
+def build_grid_diffusion_matrices(grid_size: int, k_neighbors: int = 8) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    Forward/backward random-walk diffusion transition matrices for a regular
+    grid_size x grid_size grid, using a k-nearest-neighbor graph over
+    normalized grid coordinates. Used by DCRNN's diffusion convolution.
+
+    Returns (P_forward, P_backward), each (N, N) with N = grid_size**2.
+      P_forward  = D^-1 A     (row-normalized adjacency: forward random walk)
+      P_backward = D^-1 A^T   (row-normalized transpose: backward random walk)
+    """
+    N = grid_size * grid_size
+    lin = np.linspace(-1.0, 1.0, grid_size)
+    yy, xx = np.meshgrid(lin, lin, indexing="ij")
+    coords = np.stack([yy.ravel(), xx.ravel()], axis=-1)  # (N,2)
+    d2 = ((coords[:, None, :] - coords[None, :, :]) ** 2).sum(-1)
+    np.fill_diagonal(d2, np.inf)
+    knn_idx = np.argsort(d2, axis=1)[:, :k_neighbors]
+    A = np.zeros((N, N), dtype=np.float32)
+    rows = np.repeat(np.arange(N), k_neighbors)
+    A[rows, knn_idx.ravel()] = 1.0
+    A = np.maximum(A, A.T)  # symmetrize into an undirected k-NN graph
+    D = A.sum(axis=1, keepdims=True)
+    D[D == 0] = 1.0
+    P_f = torch.tensor(A / D, dtype=torch.float32)
+    P_b = torch.tensor((A / D).T.copy(), dtype=torch.float32)
+    return P_f, P_b
+
+
+class DiffusionConv(nn.Module):
+    """
+    K-hop bidirectional diffusion graph convolution
+    (Li, Yi, Shahabi & Liu, "Diffusion Convolutional Recurrent Neural
+    Network", ICLR 2018):
+
+        y = sum_{k=0}^{K} theta_f_k (P_f^k x) + theta_b_k (P_b^k x)
+
+    P_f / P_b are the fixed forward/backward random-walk transition
+    matrices of a k-NN graph over the ERA5 grid nodes (build_grid_diffusion_
+    matrices). This replaces the plain CNN used by OperatorEncoder in the
+    other baselines with a genuine graph diffusion operator.
+    """
+
+    def __init__(self, in_ch: int, out_ch: int, grid_size: int, k_hops: int = 2, k_neighbors: int = 8):
+        super().__init__()
+        self.k_hops = k_hops
+        P_f, P_b = build_grid_diffusion_matrices(grid_size, k_neighbors)
+        self.register_buffer("P_f", P_f)
+        self.register_buffer("P_b", P_b)
+        self.lin = nn.Linear(in_ch * 2 * (k_hops + 1), out_ch)
+
+    def forward(self, x):  # x: (B, N, in_ch)
+        feats = []
+        for P in (self.P_f, self.P_b):
+            Tx = x
+            feats.append(Tx)
+            for _ in range(self.k_hops):
+                Tx = torch.einsum("nm,bmc->bnc", P, Tx)
+                feats.append(Tx)
+        h = torch.cat(feats, dim=-1)  # (B, N, in_ch * 2 * (k_hops+1))
+        return self.lin(h)
+
+
+class DCGRUCell(nn.Module):
+    """
+    Diffusion Convolutional GRU cell: standard GRU gating with the linear
+    projections replaced by DiffusionConv layers, so each recurrent update
+    mixes information across the graph (not just across channels).
+    """
+
+    def __init__(self, in_ch: int, hidden_ch: int, grid_size: int, k_hops: int = 2):
+        super().__init__()
+        self.hidden_ch = hidden_ch
+        self.gate_conv = DiffusionConv(in_ch + hidden_ch, 2 * hidden_ch, grid_size, k_hops)
+        self.cand_conv = DiffusionConv(in_ch + hidden_ch, hidden_ch, grid_size, k_hops)
+
+    def forward(self, x, h):  # x: (B,N,in_ch), h: (B,N,hidden_ch)
+        xh = torch.cat([x, h], dim=-1)
+        gates = torch.sigmoid(self.gate_conv(xh))
+        r, u = gates.chunk(2, dim=-1)
+        xh_r = torch.cat([x, r * h], dim=-1)
+        c = torch.tanh(self.cand_conv(xh_r))
+        return u * h + (1 - u) * c
+
+
+class DCRNNTrackBaseline(nn.Module):
+    """
+    Baseline: Diffusion Convolutional Recurrent Neural Network
+    (Li, Yi, Shahabi & Liu, ICLR 2018), adapted to this pipeline's inputs.
+
+    The ERA5 patch is treated as a signal on a fixed k-NN graph over the
+    storm-centered grid; a DCGRU cell recurrently updates a per-node hidden
+    state using bidirectional diffusion convolution. Only one ERA5 snapshot
+    is available per sample in this pipeline (unlike the original DCRNN's
+    multi-step traffic-sensor sequences), so the DCGRU is unrolled over
+    `history_steps`, broadcasting the corresponding past-track position onto
+    the shared ERA5 signal at each step -- the recurrence still carries a
+    genuine hidden state h_t forward exactly like the DCRNN encoder in the
+    original paper, it is simply driven by (ERA5, past-position_t) pairs
+    instead of (traffic-speed_t) snapshots.
+    """
+
+    def __init__(self, feat_ch: int, leads: int, grid_size: int, use_meta: bool = True,
+                 hidden_ch: int = 8, k_hops: int = 2):
+        super().__init__()
+        self.use_meta = use_meta
+        self.hidden_ch = hidden_ch
+        self.pos_proj = nn.Linear(2, feat_ch)  # broadcast past position onto every graph node
+        self.cell = DCGRUCell(feat_ch, hidden_ch, grid_size, k_hops)
+        meta_dim = 2 if use_meta else 0
+        self.head = ProbTrackHead(in_dim=hidden_ch + meta_dim, leads=leads)
+
+    def forward(self, past, X, meta):
+        B, C, H, W = X.shape
+        N = H * W
+        x_nodes = X.reshape(B, C, N).permute(0, 2, 1)  # (B,N,C)
+        h = torch.zeros(B, N, self.hidden_ch, device=X.device, dtype=X.dtype)
+        for t in range(past.shape[1]):
+            pos_feat = self.pos_proj(past[:, t, :]).unsqueeze(1)  # (B,1,C)
+            h = self.cell(x_nodes + pos_feat, h)
+        pooled = h.mean(dim=1)  # (B, hidden_ch)  graph readout
+        parts = [pooled]
+        if self.use_meta:
+            parts.append(meta)
+        return self.head(torch.cat(parts, dim=-1))
+
+
 # ----------------------------
 # Loss + cone coverage
 # ----------------------------
@@ -899,6 +1025,22 @@ def main():
         "Transformer (past + ERA5)",
         trm_metrics,
         os.path.join(cfg.metrics_dir, "track_metrics_transformer.csv")
+    )
+
+    # ----------------------------
+    # Baseline: DCRNN
+    # ----------------------------
+    dcrnn = DCRNNTrackBaseline(
+        feat_ch=len(cfg.features),
+        leads=len(cfg.lead_hours),
+        grid_size=cfg.grid_size,
+        use_meta=cfg.include_metadata
+    )
+    dcrnn_metrics = train_prob_model(dcrnn, tr_loader, val_loader, te_loader, cfg.epochs_baseline, "baseline_dcrnn")
+    save_metrics_row(
+        "DCRNN (past + ERA5)",
+        dcrnn_metrics,
+        os.path.join(cfg.metrics_dir, "track_metrics_dcrnn.csv")
     )
 
     # ----------------------------

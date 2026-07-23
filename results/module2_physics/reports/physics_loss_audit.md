@@ -156,3 +156,29 @@ claim.
   results are used in the paper.
 - These results are CPU-demo results, not a full-scale NeurIPS/ICLR experiment.
   Any paper table should identify the run configuration used to generate it.
+
+## Addendum (2026-07-21): Stale Default-Path Artifact
+
+A reviewer flagged that `metrics/physics/pigno_train_log.csv` still showed all
+six residuals frozen (`R_cont` exactly `0.0` for all 20 epochs, `L_phys` ramping
+independently of the residuals). Investigation confirmed the *code* fix above
+was already correct and gradient-connected (verified live: perturbing the
+model and rerunning `all_residuals` moves every residual, and
+`scripts/diagnose_physics_gradients.py` shows nonzero gradients to both
+predictions and parameters). The problem was that `metrics/physics/pigno_train_log.csv`
+and `metrics/physics/pigno_val_metrics.csv` — the default output path used by
+`model/physics/train.py` before the `full/` vs. `no_physics/` ablation split
+was introduced — were never regenerated after the fix, so they still held
+pre-fix numbers even though `metrics/physics/full/pigno_train_log.csv` (the
+file `scripts/generate_submission_outputs.py` actually reads) was correct.
+`model/MODELS.md` and `reports/validation_report.md` still pointed at the
+stale default-path file.
+
+Fix: reran `python -m model.physics.train --demo` at the default output paths
+to regenerate `metrics/physics/pigno_train_log.csv` and
+`pigno_val_metrics.csv` (and the `results/module2_physics` mirror). `R_cont`
+now climbs from `9.2e-5` to `4.47e-3` over 20 epochs, matching `full/`. The
+sha256 in `reports/validation_report.md` has been updated accordingly. No
+manuscript table was ever built from the stale file, so no numeric claims
+changed — this was a documentation/reproducibility-artifact bug, not a
+result-correctness bug.

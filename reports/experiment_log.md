@@ -1,13 +1,13 @@
 # Experiment Log
 
 - `tables/table1_track_error_vs_baselines.csv` sha256 `897000c85de7de14c70b2c315f63b24655b7426576c026410358eb94bee12db4`
-- `tables/table_case_study_track_error.csv` sha256 `35fdc8571690fa42fb7ec5a788bf630423f9247abfe04b3990708939e6c0757a`
+- `tables/table_case_study_track_error.csv` sha256 `5c3688715e57e35d82cd26a4e27c18376ee4bab63ed6682e67187f019f08a6f4`
 - `tables/table_forecast_performance_audit.csv` sha256 `fd3914f877cec6dfaf0f8834ed4c5e210419644e99c3821f076d6ca9f6235ed6`
 - `tables/table_foundation_model_training.csv` sha256 `fce083d0a20448d1f0fbbab2e5e767e7bf757d7afcbb7efbb3dd0fc30c7b0bad`
 - `tables/table_calibration_cone_coverage.csv` sha256 `c5c9837642789d9ec128a3acdf819f6f84f4ed34dd51c237b9024c26e368177a`
-- `tables/table2_humanitarian_impact.csv` sha256 `4a34fa4bfe78ea56c602fd25c4d9cc289c08324a93f1e9134952bfc29250fcca`
-- `tables/table3_ablations.csv` sha256 `a350b84363f6be0eb61296a1538eab687b8ccbc048eac92523c78da59acffaa2`
-- `tables/table_counterfactual_outcomes.csv` sha256 `1e99d1d66b5d7e7ce28f52ecf4a2a063890034dcc97fd0b447be3516f41a2f87`
-- `metrics/dataset_integrity/dataset_integrity_audit.json` sha256 `0d233ffedca77b83adadaa3689728aacceef4dfd5475f5f7e3bd0220dd62a01f`
+- `tables/table2_humanitarian_impact.csv` sha256 `a2e35c039831f490748c0e7c9263e40ff62b05b9fdd156cfd601781f906f47dc`
+- `tables/table3_ablations.csv` sha256 `884f5dc50fd3d7dee84e85af01044513e7abaacf5d75e6111d2d6a778f006134`
+- `tables/table_counterfactual_outcomes.csv` sha256 `74bf0003f2cc6cfcf693566020e1d2b4bd4ef57ec849697b855ff48dc5932e4a`
+- `metrics/dataset_integrity/dataset_integrity_audit.json` sha256 `ea8b6d9eefb7d672064754189fc68b171d29d6376df8c52fab97715f516c14b7`
 - `metrics/foundation/calibration_consistency_audit.json` sha256 `292c62163646e555ec36234afd604e1c44339ec89f3d5c2d497624de5f6dcfb7`
-- `metrics/case_study/ian_case_study_manifest.csv` sha256 `41698a6212355d71c8cf2ba5d77695251fdb625b6a96a2b8707eb89d92b0f301`
+- `metrics/case_study/ian_case_study_manifest.csv` sha256 `9091f9d84fb5831ed16cb034b91c0c0717a8340f33847563d4387e912e046377`

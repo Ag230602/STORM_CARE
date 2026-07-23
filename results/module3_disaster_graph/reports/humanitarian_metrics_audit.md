@@ -13,12 +13,12 @@
 - metrics are valid for the synthetic demo protocol only.
 
 ## Regenerated Metrics
-| metric                     |   STORM-CARE-M3 |   RF_baseline |   MLP_baseline | units   | notes                                                         |
-|:---------------------------|----------------:|--------------:|---------------:|:--------|:--------------------------------------------------------------|
-| exposed_children_MAPE      |        469.396  |      721.505  |      1070.21   | %       | Lower is better; test seed 999; baselines trained on seed 123 |
-| school_disruption_AUC      |          0.8724 |        0.6827 |         0.5494 | [0,1]   | Higher is better; pooled over all held-out school nodes       |
-| hospital_accessibility_MAE |          0.0256 |        0.0332 |         0.4174 | [0,1]   | Lower is better                                               |
-| recovery_priority_spearman |         -0.0212 |       -0.0631 |         0.0144 | [-1,1]  | Higher is better                                              |
+| metric                     |   STORM-CARE-M3 |   RF_baseline |   MLP_baseline |   XGB_baseline | units   | notes                                                         |
+|:---------------------------|----------------:|--------------:|---------------:|---------------:|:--------|:--------------------------------------------------------------|
+| exposed_children_MAPE      |        469.396  |      721.505  |      1070.21   |       779.415  | %       | Lower is better; test seed 999; baselines trained on seed 123 |
+| school_disruption_AUC      |          0.8724 |        0.6827 |         0.5494 |         0.6255 | [0,1]   | Higher is better; pooled over all held-out school nodes       |
+| hospital_accessibility_MAE |          0.0256 |        0.0332 |         0.4174 |         0.0327 | [0,1]   | Lower is better                                               |
+| recovery_priority_spearman |         -0.0212 |       -0.0631 |         0.0144 |        -0.0347 | [-1,1]  | Higher is better                                              |
 
 ## Label Audit
 - Test school positive rate: 0.0146

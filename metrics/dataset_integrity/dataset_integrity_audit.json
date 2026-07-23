@@ -19,8 +19,9 @@
     "train": 837,
     "val": 238
   },
-  "prediction_rows": 36,
+  "prediction_rows": 45,
   "prediction_models": [
+    "DCRNN",
     "GNO+DynGNN",
     "LSTM",
     "Persistence",

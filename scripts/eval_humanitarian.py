@@ -168,6 +168,11 @@ def sklearn_baselines(train_scenarios, test_scenarios, cfg):
     except ImportError:
         print("  sklearn not available for baselines")
         return {}
+    try:
+        from xgboost import XGBRegressor
+    except ImportError:
+        XGBRegressor = None
+        print("  xgboost not available; skipping XGB baseline")
 
     X_train, y_child_train, y_school_train, y_hosp_train, y_priority_train = [], [], [], [], []
     train_groups = []
@@ -214,9 +219,16 @@ def sklearn_baselines(train_scenarios, test_scenarios, cfg):
     X_train_s = scaler.transform(X_train)
     X_test_s = scaler.transform(X_test)
 
+    baseline_models = [("RF", RandomForestRegressor(n_estimators=50, random_state=42)),
+                       ("MLP", MLPRegressor(hidden_layer_sizes=(32,16), max_iter=200, random_state=42))]
+    if XGBRegressor is not None:
+        baseline_models.append(
+            ("XGB", XGBRegressor(n_estimators=100, max_depth=4, learning_rate=0.1,
+                                  random_state=42, verbosity=0))
+        )
+
     results = {}
-    for name, mdl in [("RF", RandomForestRegressor(n_estimators=50, random_state=42)),
-                      ("MLP", MLPRegressor(hidden_layer_sizes=(32,16), max_iter=200, random_state=42))]:
+    for name, mdl in baseline_models:
         mdl.fit(X_train_s, y_child_train)
         pred_child = mdl.predict(X_test_s)
         true_peaks, pred_peaks = [], []
@@ -284,6 +296,7 @@ def main():
         "STORM-CARE-M3": model_metrics.get("child_mape", np.nan),
         "RF_baseline": base_metrics.get("RF_child_mape", np.nan),
         "MLP_baseline": base_metrics.get("MLP_child_mape", np.nan),
+        "XGB_baseline": base_metrics.get("XGB_child_mape", np.nan),
         "units": "%",
         "notes": "Lower is better; test seed 999; baselines trained on seed 123",
     }, {
@@ -291,6 +304,7 @@ def main():
         "STORM-CARE-M3": model_metrics.get("school_auc", np.nan),
         "RF_baseline": base_metrics.get("RF_school_auc", np.nan),
         "MLP_baseline": base_metrics.get("MLP_school_auc", np.nan),
+        "XGB_baseline": base_metrics.get("XGB_school_auc", np.nan),
         "units": "[0,1]",
         "notes": "Higher is better; pooled over all held-out school nodes",
     }, {
@@ -298,6 +312,7 @@ def main():
         "STORM-CARE-M3": model_metrics.get("hosp_mae", np.nan),
         "RF_baseline": base_metrics.get("RF_hosp_mae", np.nan),
         "MLP_baseline": base_metrics.get("MLP_hosp_mae", np.nan),
+        "XGB_baseline": base_metrics.get("XGB_hosp_mae", np.nan),
         "units": "[0,1]",
         "notes": "Lower is better",
     }, {
@@ -305,6 +320,7 @@ def main():
         "STORM-CARE-M3": model_metrics.get("priority_rho", np.nan),
         "RF_baseline": base_metrics.get("RF_priority_rho", np.nan),
         "MLP_baseline": base_metrics.get("MLP_priority_rho", np.nan),
+        "XGB_baseline": base_metrics.get("XGB_priority_rho", np.nan),
         "units": "[-1,1]",
         "notes": "Higher is better",
     }]
@@ -401,15 +417,19 @@ def _update_table2(model_m, base_m):
     rows = [
         {"metric": "exposed_children_MAPE",      "STORM-CARE-M3": model_m.get("child_mape",     "—"),
          "RF_baseline": base_m.get("RF_child_mape", "—"),  "MLP_baseline": base_m.get("MLP_child_mape", "—"),
+         "XGB_baseline": base_m.get("XGB_child_mape", "—"),
         "units": "%",  "notes": "Lower is better; scenario-level peak exposed-child count"},
         {"metric": "school_disruption_AUC",      "STORM-CARE-M3": model_m.get("school_auc",     "—"),
          "RF_baseline": base_m.get("RF_school_auc", "—"), "MLP_baseline": base_m.get("MLP_school_auc", "—"),
+         "XGB_baseline": base_m.get("XGB_school_auc", "—"),
          "units": "[0,1]", "notes": "Higher is better; pooled ROC-AUC over held-out school nodes"},
         {"metric": "hospital_accessibility_MAE", "STORM-CARE-M3": model_m.get("hosp_mae",       "—"),
          "RF_baseline": base_m.get("RF_hosp_mae",  "—"),  "MLP_baseline": base_m.get("MLP_hosp_mae", "—"),
+         "XGB_baseline": base_m.get("XGB_hosp_mae", "—"),
          "units": "[0,1]", "notes": "Lower is better; baselines trained on disjoint synthetic scenarios"},
         {"metric": "recovery_priority_spearman", "STORM-CARE-M3": model_m.get("priority_rho",   "—"),
          "RF_baseline": base_m.get("RF_priority_rho", "—"), "MLP_baseline": base_m.get("MLP_priority_rho", "—"),
+         "XGB_baseline": base_m.get("XGB_priority_rho", "—"),
          "units": "[-1,1]", "notes": "Higher is better; Spearman ρ on ranked priority list"},
     ]
     os.makedirs("tables", exist_ok=True)

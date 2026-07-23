@@ -1,5 +1,5 @@
 {
-  "generated_at_unix": 1784250099.3142478,
+  "generated_at_unix": 1784816928.095946,
   "table": "tables/table3_ablations.csv",
   "metrics": {
     "foundation": "metrics/ablations/foundation_ablation_metrics.csv",

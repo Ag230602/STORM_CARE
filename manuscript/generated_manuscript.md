@@ -55,7 +55,7 @@ reports track error `534.4378`, intensity error
 `22.296`, exposure error `533.6304`,
 ranking correlation `0.275`, calibration
 `0.4164`, physics residual `6.1313`,
-and computational cost `38.38 s`.
+and computational cost `43.1 s`.
 
 Graph ablations are mixed: no-transport exposure error is
 `526.926` and ranking correlation is

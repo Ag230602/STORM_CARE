@@ -27,7 +27,7 @@
 
 ## Protocol
 - Source predictions: `metrics/inference_test_predictions_all_models.csv`
-- Ian prediction rows: 16
+- Ian prediction rows: 20
 - Ian forecast windows: 4
 - Axes use true latitude and longitude; western longitudes remain negative and are not inverted.
 - Coastlines are schematic offline context layers, not operational NOAA GIS products.

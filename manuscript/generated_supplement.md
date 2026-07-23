@@ -8,8 +8,8 @@ Dataset integrity status: `PASS`.
 - Baseline case-study counts: `{'test': 9, 'train': 27, 'val': 9}`
 - Foundation record counts: `{'train': 324, 'val': 76}`
 - Foundation window counts: `{'train': 837, 'val': 238}`
-- Prediction rows: `36`
-- Prediction models: `['GNO+DynGNN', 'LSTM', 'Persistence', 'Transformer']`
+- Prediction rows: `45`
+- Prediction models: `['DCRNN', 'GNO+DynGNN', 'LSTM', 'Persistence', 'Transformer']`
 
 ## Calibration Integrity
 

@@ -1,5 +1,6 @@
 scenario,metric,input_delta,observed_delta,mirrors_input
 earlier_evacuation,peak_exposure,-0.12,-0.0084,False
+earlier_evacuation_24h,peak_exposure,-0.2,-0.0128,False
 delayed_evacuation,peak_exposure,0.12,0.0054,False
 shelter_failure,resource_deficit,0.18,0.0002,False
 hospital_failure,infra_damage_final,0.12,0.0,False

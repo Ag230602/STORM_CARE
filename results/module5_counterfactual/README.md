@@ -4,7 +4,7 @@ This folder contains the corrected counterfactual world-model evaluation.
 
 ## Main Files
 
-- `metrics/counterfactual_outcomes.csv` — averaged outcomes for baseline plus eight interventions
+- `metrics/counterfactual_outcomes.csv` — averaged outcomes for baseline plus nine interventions
 - `metrics/counterfactual_mirror_diagnostics.csv` — verifies outcomes do not numerically mirror intervention inputs
 - `tables/table_counterfactual_outcomes.csv` — regenerated manuscript table
 - `reports/counterfactual_world_model_audit.md` — root-cause analysis and validation report

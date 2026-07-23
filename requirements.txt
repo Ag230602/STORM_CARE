@@ -102,5 +102,6 @@ uritemplate==4.2.0
 urllib3==2.6.3
 watchdog==6.0.0
 xarray==2026.1.0
+xgboost==3.3.0
 xyzservices==2025.11.0
 

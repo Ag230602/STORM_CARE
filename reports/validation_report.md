@@ -74,27 +74,27 @@
 - `reports/final_deliverables_manifest.md`
 
 ## Source Metric Files
-- `metrics/inference_test_metrics_summary.csv` sha256 `026dcdf89e575bb31801034f42af6986dbf4e5a4d6d1422d44cee0e54a2e07e8`
-- `metrics/inference_test_predictions_all_models.csv` sha256 `9bc1e9edb949d92ddbb2937b0e4c88cf1b114f898755f56c9c85f4b65d76e35d`
+- `metrics/inference_test_metrics_summary.csv` sha256 `2faf48aaf3926b58745c5c98663c0169697da65ef4ddbaeba13c384a6c5e6cb4`
+- `metrics/inference_test_predictions_all_models.csv` sha256 `9c3a19647869ae034f2f04404575ee719bee1b8f10243523598c11582288ccbb`
 - `metrics/baseline_input_audit.csv` sha256 `1ded702b8577363aa464ddd6a8e709e16900b5ba19e6a8b42c42a9c31cd43fe1`
 - `metrics/baseline_split_manifest.csv` sha256 `faadaf9fefa6d5dadf0cb9885d11dbea75d2df0f77bd3712e21e1c467be17872`
 - `metrics/cliper_baseline_metrics.csv` sha256 `2b5639e246c6abc092040fcdc11087804c40ac8509e85446abcdffb278990399`
 - `metrics/foundation/foundation_eval_metrics.csv` sha256 `06fb9796ba3b5404daeb98be5874b613ec8f2ce6ae384f8c0842a6344f7610fb`
-- `metrics/physics/pigno_train_log.csv` sha256 `0769110febf65004c2ac03262e102101009a2ba6228d800770d45ea5d03fdbbd`
-- `metrics/humanitarian/humanitarian_eval_metrics.csv` sha256 `d7b9f1f72c358bd63b57e24d0dc03a64c00baf71155f6c03ae822ec20e4eca1c`
+- `metrics/physics/pigno_train_log.csv` sha256 `8f63783db60afab95e34650c74b9dde6e1cc3accc1c07744225107938808bc82`
+- `metrics/humanitarian/humanitarian_eval_metrics.csv` sha256 `7f692ef5d8886a5adddcc374cccc20701a9e27e6aefeff01ec192e74850d4d41`
 - `metrics/humanitarian/humanitarian_label_audit.json` sha256 `3910c7a754f7a2d7497b8d2224cb476aefff177f96fb5ca726142f35b4dab007`
-- `tables/table3_ablations.csv` sha256 `a350b84363f6be0eb61296a1538eab687b8ccbc048eac92523c78da59acffaa2`
-- `metrics/ablations/foundation_ablation_metrics.csv` sha256 `c528b0b240a6e1f4d29ad414c03c3273eab17f275696be3e7a6d6edf34ee5cf4`
-- `metrics/ablations/graph_ablation_metrics.csv` sha256 `365433345244f7ac6e7623ee1b7cf17890772db0e865a0835b210a9bd46326be`
-- `metrics/ablations/no_physics_runtime.json` sha256 `2a35a27bedf6948fea2b99b4fb9fce7e16975f912d4827c71977bea389a88090`
-- `metrics/ablations/no_world_model_runtime.json` sha256 `84f0cbb95123c478692d8f93d231377f9b280ef72c6ce09528a7ce4cb26a03c6`
-- `metrics/ablations/table3_ablations_sources.json` sha256 `fb57bd7372368eb286746ab1de3d7663cbecf23a17679a350de0cc6ffc67f002`
-- `metrics/counterfactual/counterfactual_outcomes.csv` sha256 `550f17e00c857d836b869127db96b015924ae6102aee1866a9a732938c725009`
-- `metrics/case_study/ian_case_study_manifest.csv` sha256 `41698a6212355d71c8cf2ba5d77695251fdb625b6a96a2b8707eb89d92b0f301`
+- `tables/table3_ablations.csv` sha256 `884f5dc50fd3d7dee84e85af01044513e7abaacf5d75e6111d2d6a778f006134`
+- `metrics/ablations/foundation_ablation_metrics.csv` sha256 `1f3ef155f5829b1d82f7f360cf9f7895c5ec028c1c2dfa8a888a4c8b42141fec`
+- `metrics/ablations/graph_ablation_metrics.csv` sha256 `e7cbb1c376032c34b6987b2b66900839f0c577df509e0c99a510bd44bd34ad86`
+- `metrics/ablations/no_physics_runtime.json` sha256 `ead205d206ed997bba17e7abacc367eff14be3177ff5b7fa0d65b8f7cffc7d6e`
+- `metrics/ablations/no_world_model_runtime.json` sha256 `3cfa7f18494917654da8cc1939f1a00f1636cb5d869b780a872801b95763751c`
+- `metrics/ablations/table3_ablations_sources.json` sha256 `b8f78a4bc6172616d7bd33342c23d40f4e237f1112f4a4c692145aa0f4bb8d77`
+- `metrics/counterfactual/counterfactual_outcomes.csv` sha256 `58d52ecb1fcf69a57c0a544f42f9666a012b6f1a0ea0ab26920c046bdafcd60e`
+- `metrics/case_study/ian_case_study_manifest.csv` sha256 `9091f9d84fb5831ed16cb034b91c0c0717a8340f33847563d4387e912e046377`
 - `metrics/foundation/calibration_consistency_audit.json` sha256 `292c62163646e555ec36234afd604e1c44339ec89f3d5c2d497624de5f6dcfb7`
-- `metrics/dataset_integrity/dataset_integrity_audit.json` sha256 `0d233ffedca77b83adadaa3689728aacceef4dfd5475f5f7e3bd0220dd62a01f`
-- `manuscript/generated_manuscript.md` sha256 `1b1298733e29463b6170df7009382e3ca82021f46cf0f478418b07201da0ad38`
-- `manuscript/generated_supplement.md` sha256 `17d2fd28fb6d062c75d852f975470fc0da2699eabf76a202b50c1843f0363e66`
+- `metrics/dataset_integrity/dataset_integrity_audit.json` sha256 `ea8b6d9eefb7d672064754189fc68b171d29d6376df8c52fab97715f516c14b7`
+- `manuscript/generated_manuscript.md` sha256 `09b826843e15aae47828b37e639296dcea8a692eea7ed2a4a3a19340f9a20d53`
+- `manuscript/generated_supplement.md` sha256 `18619d188f271ada5aa198baa67f25efd0ce7402e746724267990c2b5728e932`
 
 ## Verification
 - Table 1 matches `metrics/cliper_baseline_metrics.csv` exactly for storm-level Persistence/CLIPER metrics.

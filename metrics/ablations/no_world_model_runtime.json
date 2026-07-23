@@ -1,6 +1,6 @@
 {
   "variant": "no_world_model",
-  "computational_cost_s": 0.31,
+  "computational_cost_s": 0.33,
   "runtime_protocol": "frozen-latent counterfactual rollout over complete held-out test split",
   "n_test_sequences": 24,
   "baseline_peak_exposure": 0.3064,

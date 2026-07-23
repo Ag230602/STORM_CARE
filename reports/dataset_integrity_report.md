@@ -5,7 +5,7 @@
 - Baseline case-study sample counts: `{'test': 9, 'train': 27, 'val': 9}`
 - Foundation record counts: `{'train': 324, 'val': 76}`
 - Foundation window counts: `{'train': 837, 'val': 238}`
-- Prediction rows: `36` across `4` models and `9` storm/t0 windows.
+- Prediction rows: `45` across `5` models and `9` storm/t0 windows.
 - Foundation train/val group overlap count: `0`
 
 ## Issues

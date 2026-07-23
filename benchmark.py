@@ -134,6 +134,14 @@ def load_model(model_name: str) -> torch.nn.Module:
             use_meta=cfg.include_metadata,
         )
         checkpoint_name = "baseline_transformer.pt"
+    elif model_name == "DCRNN":
+        model = pipeline.DCRNNTrackBaseline(
+            feat_ch=len(cfg.features),
+            leads=len(cfg.lead_hours),
+            grid_size=cfg.grid_size,
+            use_meta=cfg.include_metadata,
+        )
+        checkpoint_name = "baseline_dcrnn.pt"
     elif model_name == "GNO+DynGNN":
         model = pipeline.GNO_DynGNN(
             feat_ch=len(cfg.features),
@@ -285,7 +293,7 @@ def run_benchmark(test_ratio: float = 0.20, batch_size: int | None = None) -> No
     for row in predict_persistence_rows(test_samples, base_rows):
         prediction_rows.append({"model": "Persistence", **row})
 
-    for model_name in ["LSTM", "Transformer", "GNO+DynGNN"]:
+    for model_name in ["LSTM", "Transformer", "DCRNN", "GNO+DynGNN"]:
         print(f"Running benchmark inference for {model_name}...")
         model = load_model(model_name)
         metrics = pipeline.evaluate_prob_model(model, loader)

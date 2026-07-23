@@ -1,10 +1,11 @@
 scenario,description,peak_exposure,shelter_shortfall,infra_damage_final,resource_deficit,mean_hazard,n_test_sequences,peak_exposure_pct_vs_baseline,infra_damage_pct_vs_baseline,source_csv
-baseline,No intervention; learned world-model rollout from observed warm-up,0.2915,0.0227,0.08,0.0313,0.3403,24,0.0,0.0,metrics/counterfactual/counterfactual_outcomes.csv
-earlier_evacuation,Earlier evacuation branch-state intervention,0.2831,0.0224,0.0799,0.0309,0.3407,24,-2.88,-0.13,metrics/counterfactual/counterfactual_outcomes.csv
-delayed_evacuation,Delayed evacuation branch-state intervention,0.2969,0.0229,0.0801,0.0317,0.3394,24,1.85,0.13,metrics/counterfactual/counterfactual_outcomes.csv
-shelter_failure,Shelter capacity failure branch-state intervention,0.2842,0.0228,0.08,0.0315,0.3393,24,-2.5,0.0,metrics/counterfactual/counterfactual_outcomes.csv
-hospital_failure,Hospital service failure branch-state intervention,0.2843,0.0227,0.08,0.0313,0.3398,24,-2.47,0.0,metrics/counterfactual/counterfactual_outcomes.csv
-road_blockage,Road blockage / transport disruption branch-state intervention,0.2902,0.0229,0.08,0.0316,0.3393,24,-0.45,0.0,metrics/counterfactual/counterfactual_outcomes.csv
-intensity_increase,Storm intensity increase branch-state intervention,0.297,0.023,0.0801,0.0317,0.3394,24,1.89,0.13,metrics/counterfactual/counterfactual_outcomes.csv
-intensity_decrease,Storm intensity decrease branch-state intervention,0.2854,0.0224,0.0799,0.0309,0.3409,24,-2.09,-0.13,metrics/counterfactual/counterfactual_outcomes.csv
-additional_emergency_resources,Additional emergency resources branch-state intervention,0.2916,0.0226,0.08,0.0312,0.3406,24,0.03,0.0,metrics/counterfactual/counterfactual_outcomes.csv
+baseline,No intervention; learned world-model rollout from observed warm-up,0.2915,0.0227,0.08,0.0313,0.3403,24,0.0,0.0,results/module5_counterfactual/metrics/counterfactual_outcomes.csv
+earlier_evacuation,Earlier evacuation branch-state intervention (~12h lead),0.2831,0.0224,0.0799,0.0309,0.3407,24,-2.88,-0.13,results/module5_counterfactual/metrics/counterfactual_outcomes.csv
+earlier_evacuation_24h,Earlier evacuation branch-state intervention (~24h lead),0.2787,0.0223,0.0799,0.0308,0.3408,24,-4.39,-0.13,results/module5_counterfactual/metrics/counterfactual_outcomes.csv
+delayed_evacuation,Delayed evacuation branch-state intervention,0.2969,0.0229,0.0801,0.0317,0.3394,24,1.85,0.13,results/module5_counterfactual/metrics/counterfactual_outcomes.csv
+shelter_failure,Shelter capacity failure branch-state intervention,0.2842,0.0228,0.08,0.0315,0.3393,24,-2.5,0.0,results/module5_counterfactual/metrics/counterfactual_outcomes.csv
+hospital_failure,Hospital service failure branch-state intervention,0.2843,0.0227,0.08,0.0313,0.3398,24,-2.47,0.0,results/module5_counterfactual/metrics/counterfactual_outcomes.csv
+road_blockage,Road blockage / transport disruption branch-state intervention,0.2902,0.0229,0.08,0.0316,0.3393,24,-0.45,0.0,results/module5_counterfactual/metrics/counterfactual_outcomes.csv
+intensity_increase,Storm intensity increase branch-state intervention,0.297,0.023,0.0801,0.0317,0.3394,24,1.89,0.13,results/module5_counterfactual/metrics/counterfactual_outcomes.csv
+intensity_decrease,Storm intensity decrease branch-state intervention,0.2854,0.0224,0.0799,0.0309,0.3409,24,-2.09,-0.13,results/module5_counterfactual/metrics/counterfactual_outcomes.csv
+additional_emergency_resources,Additional emergency resources branch-state intervention,0.2916,0.0226,0.08,0.0312,0.3406,24,0.03,0.0,results/module5_counterfactual/metrics/counterfactual_outcomes.csv

@@ -111,3 +111,59 @@ evacuation raises peak exposure, but several infrastructure/resource scenarios
 have weak or counterintuitive effects under the current short demo checkpoint.
 Those signs should be reported as learned-model outputs and limitations, not
 overridden with analytic edits.
+
+## Addendum (2026-07-21): Lead-Time Monotonicity, Re-Verified Signs, Noise Diagnostic
+
+A reviewer re-flagged the wrong-sign issue with numbers (shelter failure
+-11.0%, route disruption -11.7%, intensification -12.6% all *reducing* peak
+exposure; `shelter_shortfall` saturated at 1.0) that do not match any
+committed artifact in this repo — they predate the fix documented above (the
+committed `counterfactual_outcomes.csv` already shows `shelter_shortfall` at a
+non-degenerate ~0.023, and `intensity_increase` already raises peak exposure,
++1.89%). Re-running the current pipeline reproduces the committed numbers
+exactly, confirming they reflect the code as it stands.
+
+Two remaining items from that review were addressed:
+
+1. **Added `earlier_evacuation_24h`** (`model/counterfactual/scenarios.py`,
+   `config.py`) with a larger branch-state exposure reduction than the
+   existing ~12h `earlier_evacuation`, to test lead-time monotonicity.
+   Re-running `model.counterfactual.run` over the full 24-sequence held-out
+   split gives:
+
+   | Scenario | Peak Exposure |
+   | --- | ---: |
+   | earlier_evacuation_24h | 0.2787 |
+   | earlier_evacuation (12h) | 0.2831 |
+   | baseline | 0.2915 |
+   | delayed_evacuation | 0.2969 |
+
+   Monotonic (24h < 12h < baseline < delayed), printed by
+   `CounterfactualEngine.print_report` as `monotonic=yes`.
+
+2. **Diagnosed whether the remaining weak/wrong-sign scenarios
+   (`shelter_failure`, `hospital_failure`, `road_blockage`) are a Monte Carlo
+   noise artifact or a structural issue.** Reran `compare_multi_storm` with
+   `n_monte_carlo` raised from 5 to 60 (12x): the signs and magnitudes barely
+   moved (e.g. `shelter_failure` peak-exposure delta: -0.0073 at MC=5 vs.
+   -0.0074 at MC=60). This rules out sampling noise as the cause — the effect
+   is a deterministic property of this specific short-demo `WorldModel`
+   checkpoint (small `d_latent`, 20 training epochs, 120 synthetic
+   sequences), most likely a spurious infra/resource-to-exposure correlation
+   learned from the small synthetic training set rather than the intended
+   causal direction. The do-operator wiring itself (branch-state edit ->
+   posterior encoding -> prior rollout -> decode, no `z_override` injection)
+   was re-confirmed correct, so this is not a pipeline bug. Fixing the
+   remaining signs would require retraining `WorldModel` (Module 4) longer
+   and/or on more data — out of scope for this pass, and already disclosed
+   as a limitation above and in the README.
+
+3. **Re-run over all test storms** was already satisfied before this pass:
+   `model/counterfactual/run.py` calls `compare_multi_storm` over the
+   complete held-out split (24 sequences for the loaded demo checkpoint), not
+   a single event.
+
+All regenerated artifacts (`metrics/counterfactual/counterfactual_outcomes.csv`,
+`counterfactual_mirror_diagnostics.csv`, `tables/table_counterfactual_outcomes.csv`,
+and the `results/module5_counterfactual` mirrors) now include the
+`earlier_evacuation_24h` row.
