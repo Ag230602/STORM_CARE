@@ -40,9 +40,13 @@ with score `860.1958`.
 
 Corrected Module 3 metrics are simulator-derived proxy metrics:
 
-- Exposed-child peak MAPE: `469.3962`
+- Exposed-child peak sMAPE (headline; E7 reframe from MAPE, which was
+  dominated by near-zero true-count denominators): `118.6586%`
+- Exposed-child peak MAE, in raw counts: `298.5237` children
+- Exposed-child peak MAPE (reference only, not the headline): `469.3962%`
 - School disruption AUC: `0.8724`
-- Hospital accessibility MAE: `0.0256`
+- Hospital accessibility MAE: `0.0256` (units: `[0,1]`
+  index, **not** km)
 - Recovery-priority Spearman: `-0.0212`
 
 These results support finite synthetic-proxy evaluation, not claims of observed

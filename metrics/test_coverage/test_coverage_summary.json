@@ -1,0 +1,6 @@
+{
+  "n_test_storms": 107,
+  "n_usable_storms": 1,
+  "n_era5_complete_windows": 29,
+  "note": "Report n_usable_storms / n_test_storms and the dominant exclusion reasons as the ERA5-coverage footnote the manuscript margin note asks for."
+}

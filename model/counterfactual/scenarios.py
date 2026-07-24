@@ -49,6 +49,17 @@ def earlier_evacuation_24h(cfg: CounterfactualConfig) -> InterventionSpec:
     )
 
 
+def earlier_evacuation_36h(cfg: CounterfactualConfig) -> InterventionSpec:
+    """~36h earlier evacuation order. Third point on the E3 dose-response
+    sweep (12h/24h/36h); exposure reduction should continue past the 24h
+    case to test whether the monotone lead-time trend holds further out."""
+    return InterventionSpec(
+        exposure_delta=-cfg.evac_36h_exposure_delta,
+        resource_delta=-0.25 * cfg.evac_36h_exposure_delta,
+        warmup_fraction=1.0,
+    )
+
+
 def delayed_evacuation(cfg: CounterfactualConfig) -> InterventionSpec:
     return InterventionSpec(
         exposure_delta=cfg.delayed_evac_exposure_delta,
@@ -113,6 +124,7 @@ SCENARIO_INTERVENTIONS = {
     "baseline": baseline,
     "earlier_evacuation": earlier_evacuation,
     "earlier_evacuation_24h": earlier_evacuation_24h,
+    "earlier_evacuation_36h": earlier_evacuation_36h,
     "delayed_evacuation": delayed_evacuation,
     "shelter_failure": shelter_failure,
     "hospital_failure": hospital_failure,
@@ -127,6 +139,7 @@ SCENARIO_DESCRIPTIONS: Dict[str, str] = {
     "baseline": "No intervention; learned world-model rollout from observed warm-up",
     "earlier_evacuation": "Earlier evacuation branch-state intervention (~12h lead)",
     "earlier_evacuation_24h": "Earlier evacuation branch-state intervention (~24h lead)",
+    "earlier_evacuation_36h": "Earlier evacuation branch-state intervention (~36h lead)",
     "delayed_evacuation": "Delayed evacuation branch-state intervention",
     "shelter_failure": "Shelter capacity failure branch-state intervention",
     "hospital_failure": "Hospital service failure branch-state intervention",

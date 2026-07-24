@@ -1,13 +1,13 @@
 # Experiment Log
 
-- `tables/table1_track_error_vs_baselines.csv` sha256 `897000c85de7de14c70b2c315f63b24655b7426576c026410358eb94bee12db4`
+- `tables/table1_track_error_vs_baselines.csv` sha256 `1cd94f74f17e40a8a45917d1bf1096e216cb844e615b399c06c148905e0bdfee`
 - `tables/table_case_study_track_error.csv` sha256 `5c3688715e57e35d82cd26a4e27c18376ee4bab63ed6682e67187f019f08a6f4`
 - `tables/table_forecast_performance_audit.csv` sha256 `fa5b522888fe321e24388b2cbddeedc1555a958a174d6f72dfa348eb2acfb54f`
 - `tables/table_foundation_model_training.csv` sha256 `dcd4544b717407e49dc9282cc5dcc0e2dd84c3fab968a4f4b43a8b8817001edc`
 - `tables/table_calibration_cone_coverage.csv` sha256 `a8c76cb238e746df047086d316a3840c672b01c0821e9ea5b84065638cfbe45a`
-- `tables/table2_humanitarian_impact.csv` sha256 `a2e35c039831f490748c0e7c9263e40ff62b05b9fdd156cfd601781f906f47dc`
+- `tables/table2_humanitarian_impact.csv` sha256 `8f076bb7150a67f70889a05f756f9615cbc43b82d8f38a14d98dcf0fd4672f8e`
 - `tables/table3_ablations.csv` sha256 `5b3220c41e5f6f17a34d535832e3c1cdcb84198f407a1e315588c281b3122243`
-- `tables/table_counterfactual_outcomes.csv` sha256 `74bf0003f2cc6cfcf693566020e1d2b4bd4ef57ec849697b855ff48dc5932e4a`
+- `tables/table_counterfactual_outcomes.csv` sha256 `c3a5dfd385223083b4ff2ddf821cdb64953ca60676d167985b34bdfea34cf429`
 - `metrics/dataset_integrity/dataset_integrity_audit.json` sha256 `ea8b6d9eefb7d672064754189fc68b171d29d6376df8c52fab97715f516c14b7`
 - `metrics/foundation/calibration_consistency_audit.json` sha256 `af42f30f08d4709b8a0edd398a662a21360f542ec1a6270f7613add6c4e3ec44`
 - `metrics/case_study/ian_case_study_manifest.csv` sha256 `9091f9d84fb5831ed16cb034b91c0c0717a8340f33847563d4387e912e046377`

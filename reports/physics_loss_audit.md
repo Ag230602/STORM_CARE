@@ -182,3 +182,44 @@ sha256 in `reports/validation_report.md` has been updated accordingly. No
 manuscript table was ever built from the stale file, so no numeric claims
 changed — this was a documentation/reproducibility-artifact bug, not a
 result-correctness bug.
+
+## Addendum (2026-07-24): E5 Physics Constraint-Weight Sweep
+
+Added a `--physics-weight-scale` CLI flag to `model/physics/train.py`
+(multiplies `lambda_adv/diff/mass/wp/cont/energy` by a scalar; leaves
+`lambda_data` untouched) and a `--seed` flag, then ran
+`scripts/run_physics_weight_sweep.py` at the demo scale (20 epochs, seed 42)
+over `no_physics` plus scales `{0.1, 0.3, 1.0, 3.0}` against the current
+`lambda_*` defaults (this repo's "1.0" is `lambda_adv=1000, lambda_diff=500,
+lambda_mass=1000, lambda_wp=500, lambda_cont=1000, lambda_energy=100`), per
+the AAAI plan's E5/RQ2 request. Final validation row per run
+(`metrics/physics_sweep/sweep_decision_table.csv`):
+
+| Variant | Scale | val_track_rmse | val_R_diff | val_R_cont |
+| --- | ---: | ---: | ---: | ---: |
+| no_physics | 0.0 | 0.01932 | 0.01457 | 0.00440 |
+| physics | 0.1 | 0.01894 | 0.00854 | 0.00387 |
+| physics | 0.3 | 0.02108 | 0.00418 | 0.00408 |
+| physics | 1.0 (current default) | 0.02201 | 0.00321 | 0.00364 |
+| physics | 3.0 | 0.02642 | 0.00339 | 0.00266 |
+
+Track RMSE degrades monotonically as the physics weight scale increases past
+0.1, confirming the accuracy/consistency tradeoff already documented above at
+the current default (scale 1.0). But at **scale 0.1**, track RMSE (0.01894)
+is *better* than the no-physics run (0.01932) while `R_diff` and `R_cont`
+residuals are still substantially lower than no-physics (0.00854 vs 0.01457,
+0.00387 vs 0.00440) — i.e. on this demo checkpoint there is a physics-weight
+scale with no accuracy cost at all relative to no-physics, while still
+buying real consistency gains. This upgrades the RQ2 claim from "tradeoff"
+to "tradeoff at the current default, avoidable at a lower physics weight" —
+the current shipped default (scale 1.0) was tuned for maximum residual
+reduction, not for this Pareto point, and was not retuned as part of this
+pass since that would change the numbers already reported elsewhere in
+Table 1/validation. Single seed only (42); the script accepts
+`--seeds 42 43 44` to add run-to-run noise bars if more compute time is
+available. Results saved to `metrics/physics_sweep/sweep_decision_table.csv`;
+raw per-run train/val logs under `metrics/physics_sweep/<tag>/` and
+checkpoints under `checkpoints/physics_sweep/<tag>/`. CFL stability remains
+unstable at every scale tested (`C` > 1), consistent with the existing CFL
+caveat in this report — the physics-weight sweep does not change that
+finding.

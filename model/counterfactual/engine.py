@@ -175,13 +175,25 @@ class CounterfactualEngine:
         return results
 
     def compare_multi_storm(
-        self, warm_up_seqs: List[Tensor]
-    ) -> Dict[str, dict]:
-        """Run all scenarios on each storm and average metrics."""
+        self, warm_up_seqs: List[Tensor], return_per_sequence: bool = False,
+    ):
+        """Run all scenarios on each storm and average metrics.
+
+        If return_per_sequence, also returns a long-format list of
+        {sequence_id, scenario, <metric>: value, ...} rows (one per
+        storm x scenario), needed for storm-level bootstrap uncertainty
+        on scenario outcome deltas (E3/E4).
+        """
         accum: Dict[str, List] = {name: [] for name in SCENARIO_INTERVENTIONS}
-        for warm_up in warm_up_seqs:
+        per_sequence_rows: List[Dict[str, object]] = []
+        for seq_idx, warm_up in enumerate(warm_up_seqs):
             for name, res in self.compare(warm_up).items():
                 accum[name].append(res["metrics"])
+                if return_per_sequence:
+                    per_sequence_rows.append({
+                        "sequence_id": seq_idx, "scenario": name,
+                        **res["metrics"],
+                    })
         averaged = {}
         for name in SCENARIO_INTERVENTIONS:
             rows = accum[name]
@@ -191,6 +203,8 @@ class CounterfactualEngine:
                 "metrics":     {k: round(sum(r[k] for r in rows)/len(rows), 4) for k in keys},
                 "n_storms":    len(warm_up_seqs),
             }
+        if return_per_sequence:
+            return averaged, per_sequence_rows
         return averaged
 
     def direct_mirror_diagnostics(self, results: Dict[str, dict]) -> List[Dict[str, object]]:
@@ -200,6 +214,7 @@ class CounterfactualEngine:
         scenario_to_metric = {
             "earlier_evacuation": ("peak_exposure", -self.cfg.evac_exposure_delta),
             "earlier_evacuation_24h": ("peak_exposure", -self.cfg.evac_24h_exposure_delta),
+            "earlier_evacuation_36h": ("peak_exposure", -self.cfg.evac_36h_exposure_delta),
             "delayed_evacuation": ("peak_exposure", self.cfg.delayed_evac_exposure_delta),
             "shelter_failure": ("resource_deficit", self.cfg.shelter_failure_resource_delta),
             "hospital_failure": ("infra_damage_final", self.cfg.hospital_failure_infra_delta),
@@ -240,6 +255,7 @@ class CounterfactualEngine:
             "baseline",
             "earlier_evacuation",
             "earlier_evacuation_24h",
+            "earlier_evacuation_36h",
             "delayed_evacuation",
             "additional_emergency_resources",
             "shelter_failure",
@@ -251,7 +267,7 @@ class CounterfactualEngine:
         prev_g = None
         for name in order:
             if name not in results: continue
-            g = ("beneficial" if name in {"earlier_evacuation", "earlier_evacuation_24h", "additional_emergency_resources", "intensity_decrease"}
+            g = ("beneficial" if name in {"earlier_evacuation", "earlier_evacuation_24h", "earlier_evacuation_36h", "additional_emergency_resources", "intensity_decrease"}
                  else "adverse" if name != "baseline" else "ref")
             if g != prev_g and prev_g is not None:
                 print("  " + "·" * 138)
@@ -277,14 +293,15 @@ class CounterfactualEngine:
         print("    mean_hazard        — mean storm hazard (sanity check only)")
         print("  ↑ = worse than baseline  |  ↓ = better than baseline")
         print(sep)
-        if {"earlier_evacuation", "earlier_evacuation_24h", "delayed_evacuation"}.issubset(results):
+        if {"earlier_evacuation", "earlier_evacuation_24h", "earlier_evacuation_36h", "delayed_evacuation"}.issubset(results):
             e12 = results["earlier_evacuation"]["metrics"]["peak_exposure"]
             e24 = results["earlier_evacuation_24h"]["metrics"]["peak_exposure"]
+            e36 = results["earlier_evacuation_36h"]["metrics"]["peak_exposure"]
             late = results["delayed_evacuation"]["metrics"]["peak_exposure"]
-            monotonic = e24 <= e12 <= baseline["peak_exposure"] <= late
+            monotonic = e36 <= e24 <= e12 <= baseline["peak_exposure"] <= late
             print(
                 f"\n  Evacuation lead-time ordering  "
-                f"24h_early={e24:.4f}  12h_early={e12:.4f}  "
+                f"36h_early={e36:.4f}  24h_early={e24:.4f}  12h_early={e12:.4f}  "
                 f"baseline={baseline['peak_exposure']:.4f}  delayed={late:.4f}"
                 f"  monotonic={'yes' if monotonic else 'no'}\n"
             )

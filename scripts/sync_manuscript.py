@@ -48,9 +48,12 @@ def main() -> None:
     selected_epoch = int(foundation.iloc[0]["epoch"])
     selection_score = float(foundation.iloc[0]["selection_score"])
 
+    child_smape = _metric(hum, "exposed_children_sMAPE", "STORM-CARE-M3")
+    child_mae_counts = _metric(hum, "exposed_children_MAE_counts", "STORM-CARE-M3")
     child_mape = _metric(hum, "exposed_children_MAPE", "STORM-CARE-M3")
     school_auc = _metric(hum, "school_disruption_AUC", "STORM-CARE-M3")
     hospital_mae = _metric(hum, "hospital_accessibility_MAE", "STORM-CARE-M3")
+    hospital_mae_units = _metric(hum, "hospital_accessibility_MAE", "units")
     priority_rho = _metric(hum, "recovery_priority_spearman", "STORM-CARE-M3")
 
     full_abl = abl[abl["variant"] == "STORM-CARE full"].iloc[0]
@@ -103,9 +106,13 @@ with score `{selection_score:.4f}`.
 
 Corrected Module 3 metrics are simulator-derived proxy metrics:
 
-- Exposed-child peak MAPE: `{child_mape}`
+- Exposed-child peak sMAPE (headline; E7 reframe from MAPE, which was
+  dominated by near-zero true-count denominators): `{child_smape}%`
+- Exposed-child peak MAE, in raw counts: `{child_mae_counts}` children
+- Exposed-child peak MAPE (reference only, not the headline): `{child_mape}%`
 - School disruption AUC: `{school_auc}`
-- Hospital accessibility MAE: `{hospital_mae}`
+- Hospital accessibility MAE: `{hospital_mae}` (units: `{hospital_mae_units}`
+  index, **not** km)
 - Recovery-priority Spearman: `{priority_rho}`
 
 These results support finite synthetic-proxy evaluation, not claims of observed

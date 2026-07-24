@@ -42,6 +42,23 @@ def mape(true, pred, eps=1e-6):
     return float(np.mean(np.abs((true[mask] - pred[mask]) / true[mask])) * 100)
 
 
+def smape(true, pred, eps=1e-6):
+    """Symmetric MAPE: bounded in [0, 200]%, robust to near-zero true values
+    (E7 — MAPE on peak exposed-child counts is dominated by near-zero
+    denominators; sMAPE divides by (|true|+|pred|)/2 instead of |true|)."""
+    true, pred = np.asarray(true, dtype=float), np.asarray(pred, dtype=float)
+    denom = (np.abs(true) + np.abs(pred)) / 2.0
+    mask = denom > eps
+    if not np.any(mask):
+        return float("nan")
+    return float(np.mean(np.abs(true[mask] - pred[mask]) / denom[mask]) * 100)
+
+
+def mae_counts(true, pred):
+    true, pred = np.asarray(true, dtype=float), np.asarray(pred, dtype=float)
+    return float(np.mean(np.abs(true - pred)))
+
+
 def roc_auc(y_true, y_score):
     if len(set(y_true)) < 2:
         return float('nan')
@@ -149,6 +166,8 @@ def evaluate_model(model, scenarios, cfg):
 
     return {
         "child_mape": round(mape(true_child_peaks, pred_child_peaks), 4),
+        "child_smape": round(smape(true_child_peaks, pred_child_peaks), 4),
+        "child_mae_counts": round(mae_counts(true_child_peaks, pred_child_peaks), 4),
         "school_auc": round(roc_auc(true_school, pred_school), 4),
         "hosp_mae": round(float(np.mean(np.abs(np.asarray(true_hosp) - np.asarray(pred_hosp)))), 4),
         "priority_rho": round(float(np.nanmean(priority_rhos)), 4),
@@ -237,6 +256,8 @@ def sklearn_baselines(train_scenarios, test_scenarios, cfg):
             true_peaks.append(float(np.max(y_child_test[mask])))
             pred_peaks.append(float(np.max(pred_child[mask])))
         results[f"{name}_child_mape"] = round(mape(true_peaks, pred_peaks), 4)
+        results[f"{name}_child_smape"] = round(smape(true_peaks, pred_peaks), 4)
+        results[f"{name}_child_mae_counts"] = round(mae_counts(true_peaks, pred_peaks), 4)
 
         mdl.fit(X_train_s, y_school_train)
         pred_school = np.asarray(mdl.predict(X_test_s))
@@ -292,13 +313,33 @@ def main():
 
     os.makedirs(os.path.dirname(METRICS_PATH), exist_ok=True)
     pd_rows = [{
+        "metric": "exposed_children_sMAPE",
+        "STORM-CARE-M3": model_metrics.get("child_smape", np.nan),
+        "RF_baseline": base_metrics.get("RF_child_smape", np.nan),
+        "MLP_baseline": base_metrics.get("MLP_child_smape", np.nan),
+        "XGB_baseline": base_metrics.get("XGB_child_smape", np.nan),
+        "units": "%",
+        "notes": ("Lower is better; headline metric (E7): symmetric MAPE, bounded "
+                  "[0,200]%, robust to the near-zero true-count denominators that "
+                  "made plain MAPE degenerate; test seed 999; baselines trained on seed 123"),
+    }, {
+        "metric": "exposed_children_MAE_counts",
+        "STORM-CARE-M3": model_metrics.get("child_mae_counts", np.nan),
+        "RF_baseline": base_metrics.get("RF_child_mae_counts", np.nan),
+        "MLP_baseline": base_metrics.get("MLP_child_mae_counts", np.nan),
+        "XGB_baseline": base_metrics.get("XGB_child_mae_counts", np.nan),
+        "units": "children (count)",
+        "notes": "Lower is better; mean absolute error on peak exposed-child count, unnormalized",
+    }, {
         "metric": "exposed_children_MAPE",
         "STORM-CARE-M3": model_metrics.get("child_mape", np.nan),
         "RF_baseline": base_metrics.get("RF_child_mape", np.nan),
         "MLP_baseline": base_metrics.get("MLP_child_mape", np.nan),
         "XGB_baseline": base_metrics.get("XGB_child_mape", np.nan),
         "units": "%",
-        "notes": "Lower is better; test seed 999; baselines trained on seed 123",
+        "notes": ("Lower is better; retained for reference only — dominated by "
+                  "near-zero true-count denominators, see exposed_children_sMAPE "
+                  "for the headline metric; test seed 999; baselines trained on seed 123"),
     }, {
         "metric": "school_disruption_AUC",
         "STORM-CARE-M3": model_metrics.get("school_auc", np.nan),
@@ -369,10 +410,17 @@ def _write_audit(model_metrics, test_sc, train_sc, cfg):
             "damage simulator no longer saturates all infrastructure targets to one after a single step",
             "humanitarian heads are supervised directly during Module 3 training",
             "train and test synthetic scenarios use disjoint seeds",
+            "(E7) headline exposed-child error metric switched from MAPE to sMAPE, plus a raw MAE-in-counts row, "
+            "since MAPE remained dominated by near-zero true-count denominators even after the scenario-level fix above",
         ],
         "limitations": [
             "targets are simulator-derived proxy labels, not observed disaster outcomes",
             "metrics are valid for the synthetic demo protocol only",
+            "(E7) under sMAPE and MAE-in-counts, STORM-CARE-M3 does NOT beat RF/XGB on exposed-child error "
+            "(sMAPE 118.7% vs RF 97.7%/XGB 97.3%; MAE 298.5 vs RF 267.6/XGB 263.5) — the reverse of the old "
+            "MAPE ranking, which favored STORM-CARE-M3 only because MAPE penalizes baseline under-prediction "
+            "more harshly near zero. This is reported plainly as an open problem, not hidden by keeping the "
+            "old headline metric.",
         ],
         "train_label_stats": _label_stats(train_sc, cfg),
         "test_label_stats": _label_stats(test_sc, cfg),
@@ -415,10 +463,19 @@ def _mirror_outputs():
 def _update_table2(model_m, base_m):
     path = "tables/table2_humanitarian_impact.csv"
     rows = [
+        {"metric": "exposed_children_sMAPE",     "STORM-CARE-M3": model_m.get("child_smape",    "—"),
+         "RF_baseline": base_m.get("RF_child_smape", "—"), "MLP_baseline": base_m.get("MLP_child_smape", "—"),
+         "XGB_baseline": base_m.get("XGB_child_smape", "—"),
+         "units": "%", "notes": ("Lower is better; headline metric (E7): symmetric MAPE, "
+                                 "robust to near-zero true-count denominators; scenario-level peak exposed-child count")},
+        {"metric": "exposed_children_MAE_counts", "STORM-CARE-M3": model_m.get("child_mae_counts", "—"),
+         "RF_baseline": base_m.get("RF_child_mae_counts", "—"), "MLP_baseline": base_m.get("MLP_child_mae_counts", "—"),
+         "XGB_baseline": base_m.get("XGB_child_mae_counts", "—"),
+         "units": "children (count)", "notes": "Lower is better; unnormalized peak exposed-child count MAE"},
         {"metric": "exposed_children_MAPE",      "STORM-CARE-M3": model_m.get("child_mape",     "—"),
          "RF_baseline": base_m.get("RF_child_mape", "—"),  "MLP_baseline": base_m.get("MLP_child_mape", "—"),
          "XGB_baseline": base_m.get("XGB_child_mape", "—"),
-        "units": "%",  "notes": "Lower is better; scenario-level peak exposed-child count"},
+        "units": "%",  "notes": "Lower is better; reference only, see exposed_children_sMAPE for the headline metric; scenario-level peak exposed-child count"},
         {"metric": "school_disruption_AUC",      "STORM-CARE-M3": model_m.get("school_auc",     "—"),
          "RF_baseline": base_m.get("RF_school_auc", "—"), "MLP_baseline": base_m.get("MLP_school_auc", "—"),
          "XGB_baseline": base_m.get("XGB_school_auc", "—"),

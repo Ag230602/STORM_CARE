@@ -117,7 +117,8 @@ def main() -> None:
 
     # ── Run RSSM-mediated counterfactuals over all test storms ───────────────
     engine  = CounterfactualEngine(world_model, cf_cfg)
-    results = engine.compare_multi_storm(warm_up_seqs)
+    results, per_sequence_rows = engine.compare_multi_storm(
+        warm_up_seqs, return_per_sequence=True)
     mirror_checks = engine.direct_mirror_diagnostics(results)
 
     # ── Print report ──────────────────────────────────────────────────────────
@@ -142,8 +143,14 @@ def main() -> None:
         w = csv.DictWriter(f, fieldnames=list(mirror_checks[0].keys()))
         w.writeheader(); w.writerows(mirror_checks)
 
+    long_path = os.path.join(cf_cfg.metrics_dir, "counterfactual_outcomes_long.csv")
+    with open(long_path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(per_sequence_rows[0].keys()))
+        w.writeheader(); w.writerows(per_sequence_rows)
+
     log.info(f"  Outcomes saved → {out_path}")
     log.info(f"  Mirror diagnostics saved → {diag_path}")
+    log.info(f"  Per-sequence outcomes saved → {long_path}")
     log.info("  Module 5 complete.")
 
 

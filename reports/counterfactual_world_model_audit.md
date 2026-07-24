@@ -167,3 +167,44 @@ All regenerated artifacts (`metrics/counterfactual/counterfactual_outcomes.csv`,
 `counterfactual_mirror_diagnostics.csv`, `tables/table_counterfactual_outcomes.csv`,
 and the `results/module5_counterfactual` mirrors) now include the
 `earlier_evacuation_24h` row.
+
+## Addendum (2026-07-24): E3 Dose-Response Sweep (12h/24h/36h) with Bootstrap Uncertainty
+
+Added a third evacuation lead-time point, `earlier_evacuation_36h`
+(`evac_36h_exposure_delta=0.28`, larger than the 24h case's 0.20), to turn
+the two-point 12h/24h comparison above into a proper three-point
+dose-response sweep, per the AAAI experiment plan's E3/E4 requirements.
+
+To support uncertainty quantification (not just a point-estimate ordering),
+`CounterfactualEngine.compare_multi_storm` gained an optional
+`return_per_sequence=True` mode that also returns one row per
+(held-out test sequence x scenario), and `model/counterfactual/run.py` now
+saves this as `metrics/counterfactual/counterfactual_outcomes_long.csv`
+alongside the existing averaged-outcomes table. `scripts/check_dose_response.py`
+consumes this long file to bootstrap over the 24 held-out sequences (10,000
+resamples) and run one-sided paired Wilcoxon tests on each adjacent step.
+
+Point estimates (peak exposure, lower = more evacuation benefit):
+
+| Scenario | Mean | Bootstrap 95% CI |
+| --- | ---: | ---: |
+| baseline | 0.2915 | [0.2842, 0.2990] |
+| earlier_evacuation (12h) | 0.2831 | [0.2754, 0.2910] |
+| earlier_evacuation_24h | 0.2787 | [0.2715, 0.2864] |
+| earlier_evacuation_36h | 0.2754 | [0.2689, 0.2824] |
+
+Result: point-estimate ordering is monotone decreasing (36h < 24h < 12h <
+baseline), **bootstrap P(fully monotone) = 1.000** over 10,000 sequence
+resamples, and every adjacent-step one-sided Wilcoxon test is significant
+(12h vs baseline p=9.1e-06; 24h vs 12h p=1.0e-05; 36h vs 24h p=1.9e-05).
+This clears the plan's claim bar (monotone + P>=0.95), so the dose-response
+claim is statistically supported, not just a point-estimate coincidence, on
+this checkpoint. Verdicts saved to `metrics/counterfactual/dose_response_verdict.csv`
+and `metrics/counterfactual/dose_response_adjacent_tests.csv`, mirrored to
+`results/module5_counterfactual/metrics/`.
+
+Same caveat as above applies: this is a demo-scale `WorldModel` checkpoint
+(small `d_latent`, short training), not a claim about real-world evacuation
+policy effect sizes — the sweep establishes that the *learned rollout
+mechanism* responds monotonically to evacuation lead time, which is the
+mechanistic property Module 5 is meant to demonstrate.

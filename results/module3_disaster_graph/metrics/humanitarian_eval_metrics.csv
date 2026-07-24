@@ -1,5 +1,7 @@
 metric,STORM-CARE-M3,RF_baseline,MLP_baseline,XGB_baseline,units,notes
-exposed_children_MAPE,469.3962,721.5049,1070.2097,779.4155,%,Lower is better; test seed 999; baselines trained on seed 123
+exposed_children_sMAPE,118.6586,97.6975,110.5687,97.278,%,"Lower is better; headline metric (E7): symmetric MAPE, bounded [0,200]%, robust to the near-zero true-count denominators that made plain MAPE degenerate; test seed 999; baselines trained on seed 123"
+exposed_children_MAE_counts,298.5237,267.6166,290.1458,263.5328,children (count),"Lower is better; mean absolute error on peak exposed-child count, unnormalized"
+exposed_children_MAPE,469.3962,721.5049,1070.2097,779.4155,%,"Lower is better; retained for reference only — dominated by near-zero true-count denominators, see exposed_children_sMAPE for the headline metric; test seed 999; baselines trained on seed 123"
 school_disruption_AUC,0.8724,0.6827,0.5494,0.6255,"[0,1]",Higher is better; pooled over all held-out school nodes
 hospital_accessibility_MAE,0.0256,0.0332,0.4174,0.0327,"[0,1]",Lower is better
 recovery_priority_spearman,-0.0212,-0.0631,0.0144,-0.0347,"[-1,1]",Higher is better

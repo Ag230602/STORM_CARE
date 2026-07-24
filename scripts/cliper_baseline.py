@@ -18,7 +18,7 @@ Outputs:
     metrics/cliper_baseline_metrics.csv
     tables/table1_track_error_vs_baselines.csv
 """
-import sys, os, csv, json
+import sys, os, csv, json, subprocess
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -92,6 +92,7 @@ def build_climatology(storm_dfs):
 def evaluate(storm_dfs, splits, partition, clim_lut):
     errors_persist = {h: [] for h in LEAD_H}
     errors_cliper  = {h: [] for h in LEAD_H}
+    long_rows = []   # storm_id, model, horizon, error — for storm-level bootstrap (E4)
 
     for df in storm_dfs:
         sid = df["storm_id"].iloc[0]
@@ -113,10 +114,14 @@ def evaluate(storm_dfs, splits, partition, clim_lut):
                 p_lat, p_lon = persistence_forecast(obs_lat, obs_lon, n)
                 c_lat, c_lon = cliper_forecast(obs_lat, obs_lon, months[t], clim_lut, n)
 
-                errors_persist[h].append(haversine_km(p_lat, p_lon, true_lat, true_lon))
-                errors_cliper[h].append(haversine_km(c_lat, c_lon, true_lat, true_lon))
+                p_err = haversine_km(p_lat, p_lon, true_lat, true_lon)
+                c_err = haversine_km(c_lat, c_lon, true_lat, true_lon)
+                errors_persist[h].append(p_err)
+                errors_cliper[h].append(c_err)
+                long_rows.append({"storm_id": sid, "model": "Persistence", "horizon": h, "error": p_err})
+                long_rows.append({"storm_id": sid, "model": "CLIPER (climatology+persistence)", "horizon": h, "error": c_err})
 
-    return errors_persist, errors_cliper
+    return errors_persist, errors_cliper, long_rows
 
 
 def ci95(values):
@@ -152,22 +157,48 @@ def main():
     print(f"  Climatology LUT: {len(clim_lut)} (month, lat_band) buckets")
 
     print("Evaluating on TEST partition …")
-    ep, ec = evaluate(storm_dfs, splits, "test", clim_lut)
+    ep, ec, long_rows = evaluate(storm_dfs, splits, "test", clim_lut)
 
-    # Print and build rows
+    # ── Storm-level bootstrap CIs (E4): windows within a storm are
+    # correlated, so resample storms, not windows. Replaces the old
+    # window-level ci95() bootstrap below.
+    long_path = "metrics/track_errors_long_persistence_cliper.csv"
+    os.makedirs(os.path.dirname(long_path), exist_ok=True)
+    with open(long_path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["storm_id", "model", "horizon", "error"])
+        w.writeheader(); w.writerows(long_rows)
+    print(f"  Saved {long_path} ({len(long_rows)} rows)")
+
+    sig_dir = "metrics/significance/persistence_cliper"
+    subprocess.run([
+        sys.executable, "scripts/compute_significance.py",
+        "--input", long_path, "--out-dir", sig_dir,
+        "--reference", "Persistence", "--all-pairs",
+    ], check=True)
+    sig_summary = {}
+    with open(f"{sig_dir}/significance_summary.csv") as f:
+        for row in csv.DictReader(f):
+            sig_summary[(row["model"], int(float(row["horizon"])))] = row
+
+    # Print and build rows using storm-level bootstrap mean/CI
     rows_persist = []
     rows_cliper  = []
     print(f"\n{'Lead':>6}  {'Persist mean':>14} {'95% CI':>16}  {'CLIPER mean':>12} {'95% CI':>16}")
     for h in LEAD_H:
-        pm, plo, phi = ci95(ep[h])
-        cm, clo, chi = ci95(ec[h])
+        prow = sig_summary.get(("Persistence", h))
+        crow = sig_summary.get(("CLIPER (climatology+persistence)", h))
         n = len(ep[h])
-        if pm is None:
+        if prow is None or crow is None:
             continue
+        pm, plo, phi = float(prow["mean"]), float(prow["ci95_lo"]), float(prow["ci95_hi"])
+        cm, clo, chi = float(crow["mean"]), float(crow["ci95_lo"]), float(crow["ci95_hi"])
+        n_storms = int(prow["n_storms"])
         print(f"{h:>4}h   {pm:>8.1f} km  [{plo:.1f}, {phi:.1f}]   "
-              f"{cm:>8.1f} km  [{clo:.1f}, {chi:.1f}]   n={n}")
-        rows_persist.append({"lead_h": h, "mean_km": pm, "ci95_lo": plo, "ci95_hi": phi, "n": n})
-        rows_cliper.append( {"lead_h": h, "mean_km": cm, "ci95_lo": clo, "ci95_hi": chi, "n": n})
+              f"{cm:>8.1f} km  [{clo:.1f}, {chi:.1f}]   n_windows={n} n_storms={n_storms}")
+        rows_persist.append({"lead_h": h, "mean_km": round(pm, 1), "ci95_lo": round(plo, 1),
+                             "ci95_hi": round(phi, 1), "n": n, "n_storms": n_storms})
+        rows_cliper.append( {"lead_h": h, "mean_km": round(cm, 1), "ci95_lo": round(clo, 1),
+                             "ci95_hi": round(chi, 1), "n": n, "n_storms": n_storms})
 
     os.makedirs(os.path.dirname(METRICS_FILE), exist_ok=True)
     metric_rows = []

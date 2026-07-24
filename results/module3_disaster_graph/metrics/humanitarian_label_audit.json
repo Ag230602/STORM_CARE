@@ -5,11 +5,13 @@
     "school AUC is pooled across held-out school nodes instead of averaged per scenario with one-class folds",
     "damage simulator no longer saturates all infrastructure targets to one after a single step",
     "humanitarian heads are supervised directly during Module 3 training",
-    "train and test synthetic scenarios use disjoint seeds"
+    "train and test synthetic scenarios use disjoint seeds",
+    "(E7) headline exposed-child error metric switched from MAPE to sMAPE, plus a raw MAE-in-counts row, since MAPE remained dominated by near-zero true-count denominators even after the scenario-level fix above"
   ],
   "limitations": [
     "targets are simulator-derived proxy labels, not observed disaster outcomes",
-    "metrics are valid for the synthetic demo protocol only"
+    "metrics are valid for the synthetic demo protocol only",
+    "(E7) under sMAPE and MAE-in-counts, STORM-CARE-M3 does NOT beat RF/XGB on exposed-child error (sMAPE 118.7% vs RF 97.7%/XGB 97.3%; MAE 298.5 vs RF 267.6/XGB 263.5) \u2014 the reverse of the old MAPE ranking, which favored STORM-CARE-M3 only because MAPE penalizes baseline under-prediction more harshly near zero. This is reported plainly as an open problem, not hidden by keeping the old headline metric."
   ],
   "train_label_stats": {
     "n_scenarios": 50,
@@ -49,6 +51,8 @@
   },
   "model_metrics": {
     "child_mape": 469.3962,
+    "child_smape": 118.6586,
+    "child_mae_counts": 298.5237,
     "school_auc": 0.8724,
     "hosp_mae": 0.0256,
     "priority_rho": -0.0212,

@@ -1,13 +1,13 @@
-model,lead_h,mean_km,ci95_lo,ci95_hi,n,partition
-Persistence,6,37.4,36.2,38.8,2998,test
-Persistence,12,92.1,89.2,95.3,2891,test
-Persistence,24,232.4,225.2,239.8,2678,test
-Persistence,48,564.0,548.1,579.8,2267,test
-Persistence,72,926.2,899.9,953.4,1885,test
-Persistence,120,1707.7,1654.9,1766.4,1256,test
-CLIPER (climatology+persistence),6,45.3,44.1,46.6,2998,test
-CLIPER (climatology+persistence),12,98.9,95.9,101.8,2891,test
-CLIPER (climatology+persistence),24,224.8,217.8,230.9,2678,test
-CLIPER (climatology+persistence),48,511.3,497.2,526.9,2267,test
-CLIPER (climatology+persistence),72,818.8,794.5,844.2,1885,test
-CLIPER (climatology+persistence),120,1503.9,1458.7,1552.7,1256,test
+model,lead_h,mean_km,ci95_lo,ci95_hi,n,n_storms,partition
+Persistence,6,37.7,34.7,40.9,2998,107,test
+Persistence,12,92.1,85.1,99.6,2891,107,test
+Persistence,24,226.7,209.0,245.4,2678,106,test
+Persistence,48,548.4,502.0,596.8,2267,100,test
+Persistence,72,865.9,796.3,938.1,1885,89,test
+Persistence,120,1536.5,1387.4,1687.1,1256,64,test
+CLIPER (climatology+persistence),6,45.2,41.9,48.7,2998,107,test
+CLIPER (climatology+persistence),12,98.4,90.9,106.4,2891,107,test
+CLIPER (climatology+persistence),24,220.9,202.2,240.6,2678,106,test
+CLIPER (climatology+persistence),48,500.8,455.8,548.3,2267,100,test
+CLIPER (climatology+persistence),72,766.5,697.5,839.1,1885,89,test
+CLIPER (climatology+persistence),120,1340.0,1185.1,1498.1,1256,64,test

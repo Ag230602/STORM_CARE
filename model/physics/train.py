@@ -619,6 +619,11 @@ def main() -> None:
                    help="Set all physics loss weights to zero for ablation")
     p.add_argument("--metrics-dir", type=str, default=None)
     p.add_argument("--checkpoint-dir", type=str, default=None)
+    p.add_argument("--seed",        type=int,   default=None)
+    p.add_argument("--physics-weight-scale", type=float, default=None,
+                   help="Multiply all physics loss weights (lambda_adv/diff/"
+                        "mass/wp/cont/energy) by this scale, for the E5 "
+                        "physics-weight sweep. Does not affect lambda_data.")
     args = p.parse_args()
 
     cfg = PIGNOConfig()
@@ -630,6 +635,7 @@ def main() -> None:
     if args.grid_size:  cfg.grid_size           = args.grid_size
     if args.metrics_dir: cfg.metrics_dir        = args.metrics_dir
     if args.checkpoint_dir: cfg.checkpoint_dir  = args.checkpoint_dir
+    if args.seed is not None: cfg.seed          = args.seed
     if args.no_physics:
         cfg.lambda_adv = 0.0
         cfg.lambda_diff = 0.0
@@ -637,6 +643,14 @@ def main() -> None:
         cfg.lambda_wp = 0.0
         cfg.lambda_cont = 0.0
         cfg.lambda_energy = 0.0
+    elif args.physics_weight_scale is not None:
+        s = args.physics_weight_scale
+        cfg.lambda_adv    *= s
+        cfg.lambda_diff   *= s
+        cfg.lambda_mass   *= s
+        cfg.lambda_wp     *= s
+        cfg.lambda_cont   *= s
+        cfg.lambda_energy *= s
 
     PIGNOTrainer(cfg).run()
 

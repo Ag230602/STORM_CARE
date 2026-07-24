@@ -10,13 +10,14 @@ Scenarios simulated
 -------------------
   1. earlier_evacuation (~12h earlier lead time)
   2. earlier_evacuation_24h (~24h earlier lead time; monotonicity check vs. #1)
-  3. delayed_evacuation
-  4. shelter_failure
-  5. hospital_failure
-  6. road_blockage
-  7. intensity_increase
-  8. intensity_decrease
-  9. additional_emergency_resources
+  3. earlier_evacuation_36h (~36h earlier lead time; dose-response sweep, E3)
+  4. delayed_evacuation
+  5. shelter_failure
+  6. hospital_failure
+  7. road_blockage
+  8. intensity_increase
+  9. intensity_decrease
+  10. additional_emergency_resources
 
 Outcome metrics computed per trajectory
 -----------------------------------------
@@ -47,6 +48,7 @@ class CounterfactualConfig:
     # expected percentage outcome changes; they are inputs to the learned RSSM.
     evac_exposure_delta: float = 0.12          # earlier_evacuation, ~12h lead
     evac_24h_exposure_delta: float = 0.20       # earlier_evacuation_24h, ~24h lead
+    evac_36h_exposure_delta: float = 0.28        # earlier_evacuation_36h, ~36h lead (E3 dose-response)
     delayed_evac_exposure_delta: float = 0.12
     shelter_failure_resource_delta: float = 0.18
     hospital_failure_infra_delta: float = 0.12
