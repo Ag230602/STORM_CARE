@@ -1,0 +1,24 @@
+{
+  "marker": "PROXY_ASSUMPTION_NOT_PUBLICATION_GRADE",
+  "horizons_h": [
+    24,
+    48,
+    72
+  ],
+  "impact_radius_km_assumed": 25.0,
+  "p90_cone_buffer_km_assumed": 25.0,
+  "proxy_region_definition": "10-degree latitude/longitude bins",
+  "region_count": 64,
+  "ndcg_gain": "linear realized vulnerability-weighted exposure",
+  "ranking_ties": "ascending region_id",
+  "predicted_ranking": "positive predicted scores only",
+  "zero_realized_ndcg_recall": "excluded as undefined",
+  "spearman_regions": "predicted > 0 or realized > 0; minimum 3",
+  "summary": "equal-weight mean of within-cyclone case means",
+  "confidence_intervals": "cyclone bootstrap of storm means",
+  "bootstrap_replicates": 10000,
+  "random_seed": 20260817,
+  "headline_tests": "two-sided Wilcoxon on paired cyclone means",
+  "holm_family_size": 2,
+  "matched_cases": 502
+}

@@ -1,0 +1,5 @@
+metric,6 h,12 h,24 h,48 h,72 h,96 h
+Verifying pairs n_h,219,214,201,168,133,100
+Distinct cyclones,13,13,13,13,11,10
+Zero-realized-exposure cases,unavailable,unavailable,unavailable,unavailable,unavailable,unavailable
+"Cases with |R_i,h| < 3",unavailable,unavailable,unavailable,unavailable,unavailable,unavailable

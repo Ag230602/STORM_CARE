@@ -1,0 +1,22 @@
+{
+  "marker": "ASSUMED_NOT_ORIGINALLY_PREREGISTERED",
+  "fixed_radius_km_assumed": 25.0,
+  "cone_base_buffer_km_assumed": 25.0,
+  "primary_representation_fixed_before_execution": "P90 covariance ellipse",
+  "primary_baseline_fixed_before_execution": "P90 percentile cone",
+  "coverage_ci_method": "storm-level percentile bootstrap",
+  "bootstrap_replicates": 10000,
+  "random_seed": 20260817,
+  "ellipse_covariance": "sample covariance, ddof=1",
+  "ellipse_projection": "local equirectangular centered on component-wise ensemble mean",
+  "disc_area": "exact spherical-cap area",
+  "matched_cases": 1035,
+  "ellipse_ineligible_cases_by_horizon": {
+    "6": 7,
+    "12": 4,
+    "24": 1,
+    "48": 1,
+    "72": 3,
+    "96": 0
+  }
+}

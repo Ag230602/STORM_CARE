@@ -1,0 +1,2 @@
+marker,selected_p90_representation,empirical_p90_coverage,coverage_ci95_low,coverage_ci95_high,mean_region_area_km2,comparison_representation,baseline_mean_area_km2,percentage_area_reduction
+ASSUMED_NOT_ORIGINALLY_PREREGISTERED,P90 covariance ellipse,0.9880239520958084,0.9635036496350365,1.0,103430.49167242022,P90 percentile cone,158047.33066762256,34.55726760109786

@@ -1,0 +1,10 @@
+{
+  "marker": "PROXY_ASSUMPTION_NOT_PUBLICATION_GRADE",
+  "impact_radius_km_assumed": 25.0,
+  "proxy_grid": "../UNICEF_DATA/outputs/proxy_external_grid_from_aots.csv",
+  "proxy_grid_resolution_degrees": 0.75,
+  "proxy_population_definition": "forecast-track sample density^1.15 * 800",
+  "proxy_vulnerability": 0.5,
+  "proxy_region_definition": "10-degree latitude/longitude bins",
+  "matched_cases": 1035
+}

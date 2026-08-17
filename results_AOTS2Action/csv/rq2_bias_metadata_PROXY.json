@@ -1,0 +1,20 @@
+{
+  "marker": "PROXY_ASSUMPTION_NOT_PUBLICATION_GRADE",
+  "impact_radius_km_assumed": 25.0,
+  "p90_cone_buffer_km_assumed": 25.0,
+  "proxy_grid": "../UNICEF_DATA/outputs/proxy_external_grid_from_aots.csv",
+  "horizons_h": [
+    6,
+    12,
+    24,
+    48,
+    72,
+    96
+  ],
+  "signed_error_zero_realized_handling": "retained",
+  "ratio_zero_realized_handling": "excluded",
+  "confidence_intervals": "cyclone cluster bootstrap of the mean",
+  "bootstrap_replicates": 10000,
+  "random_seed": 20260817,
+  "matched_cases": 1035
+}

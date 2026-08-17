@@ -1,0 +1,20 @@
+{
+  "total_cyclones": 13,
+  "total_forecast_cycles": 222,
+  "maximum_ensemble_size_M_full": 51,
+  "requested_horizons_h": [
+    6,
+    12,
+    24,
+    48,
+    72,
+    96
+  ],
+  "temporal_tolerance_h": 3,
+  "forecast_cases_at_requested_horizons": 1262,
+  "matched_verifying_cases": 1035,
+  "canonical_track_aliases": {
+    "FUNGWONG": "FUNG-WONG",
+    "WONG": "FUNG-WONG"
+  }
+}

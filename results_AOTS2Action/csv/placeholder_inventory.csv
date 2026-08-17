@@ -1,0 +1,69 @@
+section,placeholder_text_verbatim,category,notes
+Abstract,"[N storms / N forecast cycles]",A,evaluation corpus size
+Abstract,"[X%] empirical P90 coverage",B,RQ1 primary endpoint
+Abstract,"[H]-h lead time",A,fixed by protocol = 48h for RQ1/RQ3 primary; appears twice
+Abstract,"[Y%] ... relative to [NAMED BASELINE]",B,RQ1 area reduction; baseline name is a Category A pre-spec choice (O2)
+Abstract,"[Z%] relative to ... [deterministic baseline: ensemble-mean track / control member]",B,RQ2 primary improvement
+Abstract,"nDCG@10 = [R] at [H]-h lead time",B,RQ3 headline
+IV-A,"[ENSEMBLE SOURCE]",A,e.g. GenCast/ECMWF EPS/operational multi-model -- MISSING DATA
+IV-A,"[N] tropical cyclones",A,MISSING DATA
+IV-A,"[BASIN(S)]",A,MISSING DATA
+IV-A,"[YEARS]",A,MISSING DATA
+IV-A,"[C] forecast cycles",A,MISSING DATA
+IV-A,"up to [M] members each",A,M_full -- MISSING DATA
+IV-A,"[IBTrACS / HURDAT2 / JTWC] best-track data",A,MISSING DATA
+III-C(b),"r0 = [VALUE] km",A,fixed-radius parameter -- must be fixed BEFORE analysis
+III-D,"impact radius r = [VALUE] km",A,must be fixed BEFORE analysis; same r used forecast+realized
+III-C(c),"pre-specified base buffer b",A,value not yet given in manuscript text -- needed
+IV-D,"J = [number of regions]",A,depends on chosen admin-boundary dataset
+IV-E,"N_X (full analysis-grid size)",A,depends on chosen spatial resolution/domain
+IV-F,"[REPRESENTATION -- O2, fix a priori]",A,RQ1 primary representation choice; MUST be fixed before seeing results
+IV-F,"+/-[TOL -- O1, freeze after sample-size audit]",A,calibration tolerance; freeze after seeing n_h only, not after seeing coverage
+IV-E,"[uniform subsampling / cropping of the analysis grid]",A,RQ4 spatial-volume-reduction method choice
+IV-E,"workstation with [CPU], [RAM] GB memory, running [OS]",A,actual hardware used for RQ4 timing
+Table I,"n_h, distinct cyclones, zero-realized-exposure cases, |R_i,h|<3 (x6 horizons)",B,empty table awaiting data
+Table II,"AEVW mean [95% CI] x3 estimators x3 horizons + Holm-adjusted p x2 comparisons x3 horizons",B,empty table awaiting data
+Table III,"Brier score x3 estimators x6 horizons",B,empty table awaiting data
+Table IV,"nDCG@10/@5, Recall@10/@5, Spearman x3 estimators x3 horizons",B,empty table awaiting data
+V-B,"[REPRESENTATION (O2)] at 48h: coverage [X] (95% CI [lo,hi]), mean area [A] km2",B,depends on O2 pre-spec + data
+V-B,"[Y%] smaller regions than [comparison representation / fixed radius]",B,
+V-B,"[direction of miscoverage and horizon dependence] sentence",C,drafted only after seeing coverage curves
+V-B,"track error [..] km at 6h to [..] km at 96h",B,
+V-B,"consistent with published operational verification for [basin, period]",C,
+V-C,"ensemble reduces error by [Z%] at [h]h (Holm-adjusted p=[..]), [consistent/attenuating/growing]",B,RQ2 primary; wording depends on outcome
+V-C,"P90 comparison: reduces error by [..] at [h]h OR null-result sentence with [baseline] and [secondary observation]",B/C,exact sentence choice is an interpretive branch fixed only after Holm test result
+V-C,"P90 envelope overestimates by factor of [..] at 72h / behavior as observed",B,
+V-C,"deterministic track [under/over-estimates with high dispersion] / as observed",C,
+V-C,"ensemble ratio remains [nearest unity across horizons] / as observed",C,
+V-C,"lowest Brier score at [k of 6] horizons",B,
+V-C,"reliability diagrams show ensemble probabilities [well calibrated / over- or under-confident]",C,
+V-D,"nDCG@10=[R] (95% CI [lo,hi]) at 48h",B,
+V-D,"exceeds det/P90 baselines by [..] and [..] (Holm-adjusted p=[..])",B,
+V-D,"advantage [grows with horizon / pattern as observed]",C,
+V-D,"Recall@10: [..] of ten highest-priority regions identified",B,
+V-E,"runtime scales [linearly, slope [..] on log-log axes]",B,
+V-E,"peak memory [flat in M at [..] GB]",B,
+V-E,"full integration completes in [T] [s/min]",B,
+V-E,"[well within] one forecast cycle",C,operational interpretation of T vs update interval
+VI-A,"[REPRESENTATION] strongest tradeoff, coverage [X], area [A] km2; vs [comparison]: [Y% smaller/larger] at [similar/higher/lower] coverage",C,
+VI-A,"[METHOD A]/[METHOD B] coverage-vs-sharpness tradeoff description",C,
+VI-A,"interpretive sentence on anisotropic dispersion",C,
+VI (RQ2 body),"[K of 6] horizons Brier improvement narrative",C,
+VI (RQ2 body),"[short horizons] binary matches/outperforms graded probabilities",C,
+VI-B,"P90 overestimation magnitude [...at...]",C,
+VI-B,"deterministic [underestimation/high variance/mixed bias]",C,
+VI-B,"[Describe frozen result] -- nuanced bias pattern",C,
+VI-C,"nDCG@10 improvement from [DET/P90 value] to [ENS value] narrative",C,
+VI-C,"[insert result-specific interpretation if nDCG improves but Spearman does not, or vice versa]",C,
+VI-D,"[describe frozen horizon pattern]; advantage [short]->[48/72]h; peaks near [h]h; declines at 96h -- OR no monotone effect variant",C,
+VI-E,"peak memory [approximately independent of M / describe result]",C,
+VI-E,"scaling departs from linear at [setting] where [memory/cache/I-O/other] dominates",C,
+VI-E,"pipeline requires [T] for [M] members over [N] spatial elements; relative to [cycle duration]: [operational interpretation]",C,
+VI-G(f),"evaluation scope: [N] cyclones from [basin/year range]",A,restates IV-A values
+VI-I,"Discussion Summary: [support/partial support/limited support]; [headline RQ1-3 result]; [important null result or limitation]",C,written last, after all tables final
+VII,"[REPRESENTATION] P90 coverage [COVERAGE], area [AREA] km2",C,
+VII,"member-level weighting [reduced/did not significantly reduce] error by [X%] at [H]h and other horizons",C,
+VII,"nDCG@10 of [R] at 48h vs [BASELINE VALUES]",C,
+VII,"scalability showed [approximately linear/observed] growth",C,
+VII,"[support/partially support/place limits on] hypothesis",C,
+References,"refs [12],[13],[15],[16],[18],[19] marked vERIFY (author list/pages/DOI/venue/citation choice unconfirmed)",A,not a result placeholder but blocks submission; needs manual citation verification, separate from this pipeline
