@@ -1,4 +1,4 @@
-step,mean_diff,wilcoxon_p_one_sided_less
-earlier_evacuation vs baseline,-0.008433333333333336,9.080803230295557e-06
-earlier_evacuation_24h vs earlier_evacuation,-0.004375000000000004,1.0322674584977166e-05
-earlier_evacuation_36h vs earlier_evacuation_24h,-0.003333333333333325,1.9207876973367007e-05
+step,mean_diff,wilcoxon_p_one_sided_less,p_holm,claimable_at_0.05
+earlier_evacuation vs baseline,-0.008433333333333336,9.080803230295557e-06,2.7242409690886672e-05,True
+earlier_evacuation_24h vs earlier_evacuation,-0.004375000000000004,1.0322674584977166e-05,2.7242409690886672e-05,True
+earlier_evacuation_36h vs earlier_evacuation_24h,-0.003333333333333325,1.9207876973367007e-05,2.7242409690886672e-05,True

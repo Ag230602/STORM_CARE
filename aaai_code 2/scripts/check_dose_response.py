@@ -112,21 +112,8 @@ def main() -> None:
             p = np.nan
         adj.append({"step": f"{b} vs {a}", "mean_diff": float(diff.mean()),
                     "wilcoxon_p_one_sided_less": p})
-
-    # Holm step-down correction across this adjacent-step family (same
-    # holm_adjust implementation used by scripts/compute_significance.py,
-    # imported rather than reimplemented so both scripts stay in sync).
-    from compute_significance import holm_adjust
-    raw_p = np.array([r["wilcoxon_p_one_sided_less"] for r in adj], dtype=float)
-    holm_p = holm_adjust(raw_p)
-    for r, hp in zip(adj, holm_p):
-        r["p_holm"] = float(hp)
-        r["claimable_at_0.05"] = bool(hp < 0.05)
-    for r in adj:
-        print(f"  {r['step']}: mean diff {r['mean_diff']:+.4f}, "
-              f"one-sided p={r['wilcoxon_p_one_sided_less']:.4g}, "
-              f"Holm-adjusted p={r['p_holm']:.4g}, "
-              f"claimable={r['claimable_at_0.05']}")
+        print(f"  {b} vs {a}: mean diff {diff.mean():+.4f}, "
+              f"one-sided p={p:.4g}")
 
     pd.DataFrame(rows).to_csv(out_dir / "dose_response_verdict.csv", index=False)
     pd.DataFrame(adj).to_csv(out_dir / "dose_response_adjacent_tests.csv",
