@@ -471,7 +471,7 @@ def main() -> None:
                 "population_source": population_source,
                 "vulnerability_source": "World Bank country income classification mapped to vulnerability weights",
                 "admin_source": "Natural Earth country boundaries via datasets/geo-countries",
-                "infrastructure_source": "not used for RQ2 exposure rerun",
+                "infrastructure_source": "not supplied by this builder; optional infrastructure augmentation may update this field",
             }
         )
 

@@ -9,7 +9,7 @@ This rerun uses the all-horizon matched corpus (`n=1,035`) and the existing cycl
 - Population: WorldPop Total Population 1 km ImageServer, year 2020; 2,192 RQ2-active cells queried.
 - Vulnerability/socioeconomic weight: World Bank country income classification mapped as LIC=1.00, LMC=0.75, UMC=0.50, HIC=0.25; fallback 0.50.
 - Administrative boundaries: Natural Earth country boundaries via `datasets/geo-countries`; coastal cells use country-envelope intersection when the cell center is offshore.
-- Infrastructure: not used in this RQ2 exposure rerun.
+- Infrastructure: Natural Earth 1:10m airports v5.0.0 and ports v5.0.0 are harmonized onto the grid as 100 km counts and nearest-distance context fields. The primary RQ2 exposure weight remains the prespecified `population * inform_risk`.
 - Inactive cells outside every RQ2 realized/deterministic/P90/member footprint were set to zero population because they cannot affect exposure AE, signed error, or exposure ratio; Brier scores are unweighted over grid cells.
 
 Confidence intervals are 95% cyclone-cluster bootstrap intervals with 10,000 replicates and seed 20260817. Paired comparisons average cycle-level differences within cyclone and use two-sided Wilcoxon signed-rank tests with Holm correction.

@@ -34,5 +34,22 @@
     "url": "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson",
     "unassigned_or_ocean_grid_cells": 1990
   },
-  "inactive_cell_population_policy": "Cells outside every RQ2 realized, deterministic, P90, and member footprint are set to zero population because they cannot affect exposure AE/signed/ratio; Brier scores are unweighted over grid cells."
+  "inactive_cell_population_policy": "Cells outside every RQ2 realized, deterministic, P90, and member footprint are set to zero population because they cannot affect exposure AE/signed/ratio; Brier scores are unweighted over grid cells.",
+  "infrastructure": {
+    "sources": {
+      "airports": {
+        "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_airports.geojson",
+        "version": "Natural Earth 1:10m airports, version 5.0.0"
+      },
+      "ports": {
+        "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_ports.geojson",
+        "version": "Natural Earth 1:10m ports, version 5.0.0"
+      }
+    },
+    "harmonization": "Airport and port points are counted within 100 km of each cyclone-grid cell center; nearest distances are retained in km.",
+    "airports_loaded": 893,
+    "ports_loaded": 1081,
+    "updated_utc": "2026-08-18T16:55:35.965201+00:00",
+    "primary_exposure_weight_note": "Infrastructure columns are retained as real spatial context/provenance; the primary RQ2/RQ3 exposure weight remains population * inform_risk."
+  }
 }

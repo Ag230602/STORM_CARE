@@ -409,7 +409,7 @@ def write_manifest() -> tuple[Path, Path]:
                 continue
             if path.name == "MANIFEST_REAL_DELIVERABLES.md":
                 continue
-            if path.suffix.lower() not in {".csv", ".json", ".md", ".png", ".pdf"}:
+            if path.suffix.lower() not in {".csv", ".json", ".geojson", ".md", ".png", ".pdf"}:
                 continue
             is_real = "_REAL" in path.name or path.name in {
                 "README.md",

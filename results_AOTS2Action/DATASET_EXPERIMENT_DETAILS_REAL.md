@@ -5,8 +5,10 @@ Marker: **REAL_HUMANITARIAN_GEOSPATIAL_DATA**
 ## Ensemble Forecast Source
 
 - Local source file used for all AOTS2Action reruns: `../UNICEF_DATA/AOTS_DATA_SHARE (5).csv`.
+- Local dataset documentation labels this file as **AOTS tropical cyclone ensemble forecasts** from the **Advanced Operational Tropical-cyclone Simulation** dataset.
 - Required columns used: `FORECAST_TIME`, `TRACK_ID`, `ENSEMBLE_MEMBER`, `VALID_TIME`, `LEAD_TIME`, `LATITUDE`, `LONGITUDE`.
-- This is the ensemble-track data share currently available in the project. If the paper needs a public provider name (e.g., ECMWF/GEFS/JTWC aid-deck), that provider label is not encoded in the CSV metadata and should be confirmed from the data donor/source notes before manuscript submission.
+- The CSV also contains intensity and wind-field fields including pressure, wind speed, radii of maximum winds, quadrant wind radii, and wind-field polygons.
+- Public-provider note: the available local documentation identifies the dataset as AOTS / Advanced Operational Tropical-cyclone Simulation. It does not encode a separate public institutional provider label such as ECMWF or GEFS.
 
 ## Cyclones, Basins, Years, and Cycles
 
@@ -59,7 +61,14 @@ Marker: **REAL_HUMANITARIAN_GEOSPATIAL_DATA**
 - Administrative boundaries: Natural Earth country boundaries via geo-countries.
 - Administrative boundary URL: https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson.
 - Unassigned/ocean cells after coastal-intersection assignment: 1990.
-- Infrastructure source: not used in the current RQ2/RQ3/scalability reruns.
+- Infrastructure sources: Natural Earth 1:10m airports v5.0.0 and Natural Earth 1:10m ports v5.0.0.
+- Infrastructure source files retained in this handoff:
+  - `results_AOTS2Action/data/ne_10m_airports_REAL.geojson`
+  - `results_AOTS2Action/data/ne_10m_ports_REAL.geojson`
+- Infrastructure harmonization: airport and port points are counted within 100 km of each harmonized cyclone-grid cell center; nearest airport/port distances are retained in km.
+- Infrastructure columns retained in the real grid: `airport_count_100km`, `port_count_100km`, `nearest_airport_km`, `nearest_port_km`, `infrastructure_access_score`, `infrastructure_access_score_norm`, and `infrastructure_source`.
+- Infrastructure feature counts loaded: 893 airports and 1081 ports.
+- Primary exposure-weight note: RQ2/RQ3 continue to use `population * inform_risk` as the prespecified vulnerability-weighted exposure target; infrastructure is retained as real spatial context/provenance rather than mixed into the primary exposure metric.
 
 ## Scalability Experiment Details
 
@@ -84,8 +93,8 @@ Marker: **REAL_HUMANITARIAN_GEOSPATIAL_DATA**
 ## Largest Real Scalability Configuration
 
 - Configuration: M_full=51, N_X=2863.
-- Mean runtime: 0.005142 s per forecast case.
-- Median runtime: 0.005135 s per forecast case.
-- Runtime std: 0.000022 s.
-- Peak memory: 0.0311 GB.
-- Mean throughput: 28,394,696.40 items/s.
+- Mean runtime: 0.005151 s per forecast case.
+- Median runtime: 0.005122 s per forecast case.
+- Runtime std: 0.000049 s.
+- Peak memory: 0.0314 GB.
+- Mean throughput: 28,348,666.61 items/s.
