@@ -1,0 +1,24 @@
+{
+  "marker": "REAL_HUMANITARIAN_GEOSPATIAL_DATA",
+  "impact_radius_km_assumed": 25.0,
+  "p90_cone_buffer_km_assumed": 25.0,
+  "grid_kind": "real",
+  "grid": "results_AOTS2Action/csv/humanitarian_grid_REAL.csv",
+  "grid_metadata": "results_AOTS2Action/csv/humanitarian_grid_REAL.metadata.json",
+  "vulnerability_weight": "population * inform_risk",
+  "p90_envelope_radius": "empirical P90 member-to-mean distance + cone buffer + impact radius",
+  "bootstrap": "cyclone cluster bootstrap; sampled cyclone contributes all cycles",
+  "bootstrap_replicates": 10000,
+  "random_seed": 20260817,
+  "paired_inference": "cycle differences averaged within cyclone, two-sided Wilcoxon signed-rank",
+  "holm_family_size": 6,
+  "primary_horizons_h": [
+    6,
+    12,
+    24,
+    48,
+    72,
+    96
+  ],
+  "matched_cases": 1035
+}

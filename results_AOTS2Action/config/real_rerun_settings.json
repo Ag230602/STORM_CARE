@@ -1,0 +1,243 @@
+{
+  "bootstrap_replicates": 10000,
+  "bootstrap_seed": 20260817,
+  "commands": [
+    "PYTHONPATH=scripts python3 scripts/build_aots2action_rq2.py --forecasts '../UNICEF_DATA/AOTS_DATA_SHARE (5).csv' --corpus results_AOTS2Action/csv/table1_evaluation_corpus.csv --grid results_AOTS2Action/csv/humanitarian_grid_REAL.csv --grid-kind real --grid-metadata results_AOTS2Action/csv/humanitarian_grid_REAL.metadata.json --horizons 6,12,24,48,72,96",
+    "PYTHONPATH=scripts python3 scripts/build_aots2action_rq2_bias.py --forecasts '../UNICEF_DATA/AOTS_DATA_SHARE (5).csv' --corpus results_AOTS2Action/csv/table1_evaluation_corpus.csv --grid results_AOTS2Action/csv/humanitarian_grid_REAL.csv --grid-kind real --grid-metadata results_AOTS2Action/csv/humanitarian_grid_REAL.metadata.json",
+    "PYTHONPATH=scripts python3 scripts/build_aots2action_rq2_brier.py --forecasts '../UNICEF_DATA/AOTS_DATA_SHARE (5).csv' --corpus results_AOTS2Action/csv/table1_evaluation_corpus.csv --grid results_AOTS2Action/csv/humanitarian_grid_REAL.csv --grid-kind real --grid-metadata results_AOTS2Action/csv/humanitarian_grid_REAL.metadata.json",
+    "PYTHONPATH=scripts python3 scripts/build_aots2action_rq3.py --forecasts '../UNICEF_DATA/AOTS_DATA_SHARE (5).csv' --corpus results_AOTS2Action/csv/table1_evaluation_corpus.csv --grid results_AOTS2Action/csv/humanitarian_grid_REAL.csv --grid-kind real --grid-metadata results_AOTS2Action/csv/humanitarian_grid_REAL.metadata.json",
+    "PYTHONPATH=scripts python3 scripts/run_aots2action_scalability.py --forecasts '../UNICEF_DATA/AOTS_DATA_SHARE (5).csv' --corpus results_AOTS2Action/csv/table1_evaluation_corpus.csv --grid results_AOTS2Action/csv/humanitarian_grid_REAL.csv --grid-kind real --grid-metadata results_AOTS2Action/csv/humanitarian_grid_REAL.metadata.json --output-suffix REAL --out-dir results_AOTS2Action --repeats 10 --horizons 24,48,72"
+  ],
+  "corpus": "results_AOTS2Action/csv/table1_evaluation_corpus.csv",
+  "created_utc": "2026-08-18T16:48:06.958840+00:00",
+  "estimators": [
+    "Deterministic mean-track",
+    "P90 envelope",
+    "Ensemble probability-weighted"
+  ],
+  "forecast_source": "../UNICEF_DATA/AOTS_DATA_SHARE (5).csv",
+  "impact_radius_km": 25.0,
+  "machine": {
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "processor": "arm",
+    "python": "3.9.6"
+  },
+  "marker": "REAL_HUMANITARIAN_GEOSPATIAL_DATA",
+  "p90_cone_buffer_km": 25.0,
+  "paired_test": "Two-sided Wilcoxon signed-rank on cyclone-level paired differences, Holm-adjusted.",
+  "priority_scope": "Real-data RQ2/RQ3 rerun, with RQ4 scalability and dataset details.",
+  "real_grid": "results_AOTS2Action/csv/humanitarian_grid_REAL.csv",
+  "real_grid_metadata": "results_AOTS2Action/csv/humanitarian_grid_REAL.metadata.json",
+  "results_directory": "results_AOTS2Action",
+  "rq2_horizons_h": [
+    6,
+    12,
+    24,
+    48,
+    72,
+    96
+  ],
+  "rq3_horizons_h": [
+    24,
+    48,
+    72
+  ],
+  "rq4_horizons_h": [
+    24,
+    48,
+    72
+  ],
+  "scalability_repeats": 10,
+  "source_metadata": {
+    "humanitarian_grid_REAL.metadata.json": {
+      "administrative_boundaries": {
+        "source": "Natural Earth country boundaries via geo-countries",
+        "unassigned_or_ocean_grid_cells": 1990,
+        "url": "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson"
+      },
+      "created_utc": "2026-08-18T16:27:04.283045+00:00",
+      "cyclone_grid_template": "AOTS-derived cyclone forecast grid harmonized to real geospatial sources",
+      "grid_cells_total": 2863,
+      "horizons_h": [
+        6,
+        12,
+        24,
+        48,
+        72,
+        96
+      ],
+      "inactive_cell_population_policy": "Cells outside every RQ2 realized, deterministic, P90, and member footprint are set to zero population because they cannot affect exposure AE/signed/ratio; Brier scores are unweighted over grid cells.",
+      "marker": "REAL_HUMANITARIAN_GEOSPATIAL_DATA",
+      "output_grid": "results_AOTS2Action/csv/humanitarian_grid_REAL.csv",
+      "rq2_exposure_active_cells": 2192,
+      "vulnerability": {
+        "api": "https://api.worldbank.org/v2/country?format=json&per_page=400",
+        "fallback_weight": 0.5,
+        "mapping": {
+          "HIC": 0.25,
+          "LIC": 1.0,
+          "LMC": 0.75,
+          "UMC": 0.5
+        },
+        "source": "World Bank country income classification"
+      },
+      "worldpop_api": "https://worldpop.arcgis.com/arcgis/rest/services/WorldPop_Total_Population_1km/ImageServer/computeStatisticsHistograms",
+      "worldpop_cells_cached_or_queried": 2192,
+      "worldpop_population_mode": "imageserver",
+      "worldpop_resolution": "1km",
+      "worldpop_year": 2020
+    },
+    "rq2_bias_metadata_REAL.json": {
+      "bootstrap_replicates": 10000,
+      "confidence_intervals": "cyclone cluster bootstrap of the mean",
+      "grid": "results_AOTS2Action/csv/humanitarian_grid_REAL.csv",
+      "grid_kind": "real",
+      "grid_metadata": "results_AOTS2Action/csv/humanitarian_grid_REAL.metadata.json",
+      "horizons_h": [
+        6,
+        12,
+        24,
+        48,
+        72,
+        96
+      ],
+      "impact_radius_km_assumed": 25.0,
+      "marker": "REAL_HUMANITARIAN_GEOSPATIAL_DATA",
+      "matched_cases": 1035,
+      "p90_cone_buffer_km_assumed": 25.0,
+      "random_seed": 20260817,
+      "ratio_zero_realized_handling": "excluded",
+      "signed_error_zero_realized_handling": "retained"
+    },
+    "rq2_brier_metadata_REAL.json": {
+      "bootstrap_replicates": 10000,
+      "case_aggregation": "mean over domain cells, then unweighted mean over cases",
+      "confidence_intervals": "cyclone cluster bootstrap of the mean",
+      "domain": "square centered on verifying best-track position",
+      "domain_half_size_deg": 8.0,
+      "domain_source": "model/track_pipeline_unified_X.py CFG.crop_deg",
+      "grid": "results_AOTS2Action/csv/humanitarian_grid_REAL.csv",
+      "grid_kind": "real",
+      "grid_metadata": "results_AOTS2Action/csv/humanitarian_grid_REAL.metadata.json",
+      "holm_family_size": 12,
+      "horizons_h": [
+        6,
+        12,
+        24,
+        48,
+        72,
+        96
+      ],
+      "impact_radius_km_assumed": 25.0,
+      "marker": "REAL_HUMANITARIAN_GEOSPATIAL_DATA",
+      "matched_cases": 1035,
+      "p90_cone_buffer_km_assumed": 25.0,
+      "paired_inference": "cycle differences averaged within cyclone, two-sided Wilcoxon signed-rank",
+      "random_seed": 20260817,
+      "reliability_bins": 10
+    },
+    "rq2_metadata_REAL.json": {
+      "bootstrap": "cyclone cluster bootstrap; sampled cyclone contributes all cycles",
+      "bootstrap_replicates": 10000,
+      "grid": "results_AOTS2Action/csv/humanitarian_grid_REAL.csv",
+      "grid_kind": "real",
+      "grid_metadata": "results_AOTS2Action/csv/humanitarian_grid_REAL.metadata.json",
+      "holm_family_size": 6,
+      "impact_radius_km_assumed": 25.0,
+      "marker": "REAL_HUMANITARIAN_GEOSPATIAL_DATA",
+      "matched_cases": 1035,
+      "p90_cone_buffer_km_assumed": 25.0,
+      "p90_envelope_radius": "empirical P90 member-to-mean distance + cone buffer + impact radius",
+      "paired_inference": "cycle differences averaged within cyclone, two-sided Wilcoxon signed-rank",
+      "primary_horizons_h": [
+        6,
+        12,
+        24,
+        48,
+        72,
+        96
+      ],
+      "random_seed": 20260817,
+      "vulnerability_weight": "population * inform_risk"
+    },
+    "rq3_metadata_REAL.json": {
+      "bootstrap_replicates": 10000,
+      "confidence_intervals": "cyclone bootstrap of storm means",
+      "grid": "results_AOTS2Action/csv/humanitarian_grid_REAL.csv",
+      "grid_kind": "real",
+      "grid_metadata": "results_AOTS2Action/csv/humanitarian_grid_REAL.metadata.json",
+      "headline_tests": "two-sided Wilcoxon on paired cyclone means",
+      "holm_family_size": 2,
+      "horizons_h": [
+        24,
+        48,
+        72
+      ],
+      "impact_radius_km_assumed": 25.0,
+      "marker": "REAL_HUMANITARIAN_GEOSPATIAL_DATA",
+      "matched_cases": 502,
+      "ndcg_gain": "linear realized vulnerability-weighted exposure",
+      "p90_cone_buffer_km_assumed": 25.0,
+      "predicted_ranking": "positive predicted scores only",
+      "random_seed": 20260817,
+      "ranking_ties": "ascending region_id",
+      "region_count": 37,
+      "region_definition": "administrative boundaries from harmonized grid",
+      "spearman_regions": "predicted > 0 or realized > 0; minimum 3",
+      "summary": "equal-weight mean of within-cyclone case means",
+      "zero_realized_ndcg_recall": "excluded as undefined"
+    },
+    "rq4_scalability_metadata_REAL.json": {
+      "cone_buffer_km": 25.0,
+      "corpus_file": "results_AOTS2Action/csv/table1_evaluation_corpus.csv",
+      "cpu_model": "Apple M1 Pro",
+      "eligible_case_count": 298,
+      "eligible_case_policy": "same cases for every configuration; require at least M_full members",
+      "forecast_cycle_hours": 6.0,
+      "forecast_file": "../UNICEF_DATA/AOTS_DATA_SHARE (5).csv",
+      "grid_file": "results_AOTS2Action/csv/humanitarian_grid_REAL.csv",
+      "grid_kind": "real",
+      "grid_metadata": "results_AOTS2Action/csv/humanitarian_grid_REAL.metadata.json",
+      "horizons_h": [
+        24,
+        48,
+        72
+      ],
+      "impact_radius_km": 25.0,
+      "loaded_case_count": 502,
+      "m_full": 51,
+      "m_values": [
+        "5",
+        "10",
+        "20",
+        "40",
+        "M_full"
+      ],
+      "marker": "REAL_HUMANITARIAN_GEOSPATIAL_DATA",
+      "n_x": 2863,
+      "numpy_version": "2.0.2",
+      "operating_system": "macOS-26.5.2-arm64-arm-64bit",
+      "output_suffix": "REAL",
+      "python_version": "3.9.6",
+      "ram_gb": 16.0,
+      "random_seed": 20260817,
+      "repeats": 10,
+      "runtime_scope": "per forecast case, derived from total eligible-case batch runtime / eligible_case_count",
+      "throughput_formula": "M * |X| / runtime_s",
+      "x_fractions": [
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1.0
+      ],
+      "x_sizes": [
+        286,
+        716,
+        1432,
+        2147,
+        2863
+      ]
+    }
+  }
+}

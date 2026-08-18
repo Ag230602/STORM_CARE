@@ -102,7 +102,12 @@ def write_csv(path: Path, rows: list[dict[str, object]]) -> None:
         writer.writerows(rows)
 
 
-def write_report(path: Path, rows: list[dict[str, object]]) -> None:
+def write_report(path: Path, rows: list[dict[str, object]], grid_kind: str) -> None:
+    exposure_units = (
+        "Exposure values are real-data vulnerability-weighted population units."
+        if grid_kind == "real"
+        else "Exposure values are proxy vulnerability-weighted units, not people."
+    )
     lines = [
         "# RQ2: direction and magnitude of exposure-estimation bias",
         "",
@@ -113,7 +118,7 @@ def write_report(path: Path, rows: list[dict[str, object]]) -> None:
         "ratios below 1 indicate underestimation. Brackets contain cyclone-cluster",
         "bootstrap 95% confidence intervals for means (10,000 replicates; seed",
         "20260817). Signed errors retain zero-realized-exposure cases; ratios exclude",
-        "them. Exposure values are proxy vulnerability-weighted units, not people.",
+        f"them. {exposure_units}",
         "",
         "| Estimator | Lead | Mean signed error [95% CI] | Median signed error | Mean ratio [95% CI] | Median ratio | n signed / ratio |",
         "|---|---:|---:|---:|---:|---:|---:|",
@@ -128,8 +133,9 @@ def write_report(path: Path, rows: list[dict[str, object]]) -> None:
                 **row
             )
         )
-    lines.extend(
-        [
+    if grid_kind == "proxy":
+        lines.extend(
+            [
             "",
             "## Numerical interpretation",
             "",
@@ -157,8 +163,8 @@ def write_report(path: Path, rows: list[dict[str, object]]) -> None:
             "The disparity between signed-error and ratio summaries is expected: signed",
             "errors include zero-realized cases and preserve exposure magnitude, while",
             "ratios condition on a nonzero denominator and weight each case equally.",
-        ]
-    )
+            ]
+        )
     path.write_text("\n".join(lines) + "\n")
 
 
@@ -166,7 +172,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--forecasts", type=Path, required=True)
     parser.add_argument("--corpus", type=Path, required=True)
-    parser.add_argument("--proxy-grid", type=Path, required=True)
+    parser.add_argument("--proxy-grid", type=Path)
+    parser.add_argument("--grid", type=Path)
+    parser.add_argument("--grid-kind", choices=("proxy", "real"), default="proxy")
+    parser.add_argument("--grid-metadata", type=Path)
+    parser.add_argument("--vulnerability-column", default="inform_risk")
     parser.add_argument("--case-output", type=Path, required=True)
     parser.add_argument("--table-output", type=Path, required=True)
     parser.add_argument("--metadata", type=Path, required=True)
@@ -178,12 +188,16 @@ def main() -> None:
     args = parser.parse_args()
 
     rq2.HORIZONS = HORIZONS
+    rq2.MARKER = rq2.REAL_MARKER if args.grid_kind == "real" else rq2.MARKER
+    grid_path = args.grid or args.proxy_grid
+    if grid_path is None:
+        raise ValueError("Provide --grid for real data or --proxy-grid for proxy data")
     cases = rq2.load_cases(args.corpus)
     positions = rq2.load_positions(args.forecasts, set(cases))
     missing = set(cases) - positions.keys()
     if missing:
         raise ValueError(f"Missing ensemble positions for {len(missing)} cases")
-    grid = rq2.load_grid(args.proxy_grid)
+    grid = rq2.load_grid(grid_path, args.vulnerability_column)
     case_rows = rq2.evaluate_cases(
         cases, positions, grid, args.impact_radius_km, args.cone_buffer_km
     )
@@ -200,14 +214,16 @@ def main() -> None:
     summary = summarize_bias(case_rows, args.bootstrap_replicates, args.seed)
     write_csv(args.case_output, case_rows)
     write_csv(args.table_output, summary)
-    write_report(args.report_output, summary)
+    write_report(args.report_output, summary, args.grid_kind)
     args.metadata.write_text(
         json.dumps(
             {
                 "marker": rq2.MARKER,
                 "impact_radius_km_assumed": args.impact_radius_km,
                 "p90_cone_buffer_km_assumed": args.cone_buffer_km,
-                "proxy_grid": str(args.proxy_grid),
+                "grid_kind": args.grid_kind,
+                "grid": str(grid_path),
+                "grid_metadata": str(args.grid_metadata) if args.grid_metadata else None,
                 "horizons_h": list(HORIZONS),
                 "signed_error_zero_realized_handling": "retained",
                 "ratio_zero_realized_handling": "excluded",

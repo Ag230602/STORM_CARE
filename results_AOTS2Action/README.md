@@ -1,6 +1,6 @@
 # AOTS2Action — Results Output Folder (scaffold)
 
-Status: **BLOCKED — manuscript found, data still missing.**
+Status: **DATA INPUTS STILL REQUIRED — real-data harmonization workflow added.**
 
 This folder is reserved for the retrospective evaluation results supporting
 "AOTS2Action: Uncertainty-Aware Big Data Analytics for Humanitarian Cyclone
@@ -41,9 +41,20 @@ Still required before this folder can be populated with real numbers:
   O1 (calibration tolerance), O2 (primary RQ1 representation), M subsample
   policy, spatial-volume reduction method, workstation CPU/RAM/OS
 
-Subfolders:
+Added 2026-08-18: `scripts/build_real_humanitarian_grid.py` now creates a
+publication-grade RQ2/RQ3 grid from real population, vulnerability,
+administrative-boundary, and optional infrastructure layers, retaining source
+names/URLs in row columns and a metadata sidecar. `scripts/build_aots2action_rq2.py`
+and `scripts/build_aots2action_rq3.py` now accept `--grid-kind real` and mark
+those outputs as `REAL_HUMANITARIAN_GEOSPATIAL_DATA`. See
+`REAL_DATA_WORKFLOW.md` for commands and source notes.
 
-- `tables/` — Tables I–IV and placeholder replacement sheet, as CSV/Markdown (pending data)
-- `csv/` — `placeholder_inventory.csv` (done); machine-readable intermediate/final results (pending data)
-- `figures/` — coverage-vs-horizon, area-vs-horizon, scalability plots (pending data)
-- `logs/` — run logs / reproducibility manifests (pending data)
+Final real-data handoff files:
+
+- `MANIFEST_REAL_DELIVERABLES.md` — verifier-facing index of real-data result files.
+- `csv/manifest_real_deliverables.csv` — machine-readable manifest with file sizes and SHA-256 hashes.
+- `config/real_rerun_settings.json` — configuration, data sources, horizons, tests, and rerun commands.
+- `tables/*_REAL.csv` — summary tables for real-data RQ2/RQ3/RQ4.
+- `csv/*_REAL.csv` and `csv/*_REAL.json` — case-level outputs, metadata, reliability bins, scalability diagnostics, and real-grid source data.
+- `figures/*_REAL.{png,pdf}` — manuscript-check plots for real-data RQ2/RQ3/RQ4.
+- `AOTS2Action_REAL_DELIVERABLES.zip` — portable bundle of the real-data reports, CSVs, tables, settings, and plots.

@@ -10,6 +10,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
+from scipy.stats import wilcoxon
 
 import build_aots2action_rq2 as rq2
 
@@ -111,24 +112,108 @@ def evaluate_fields(
     return output, reliability
 
 
-def summarize_scores(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+def cluster_bootstrap_ci(
+    rows: list[dict[str, object]],
+    value_key: str,
+    replicates: int,
+    seed: int,
+) -> tuple[float, float]:
+    by_storm: dict[str, list[float]] = defaultdict(list)
+    for row in rows:
+        by_storm[str(row["cyclone_id"])].append(float(row[value_key]))
+    values = [np.asarray(by_storm[storm], dtype=float) for storm in sorted(by_storm)]
+    random = np.random.default_rng(seed)
+    bootstrap = np.empty(replicates, dtype=float)
+    for replicate in range(replicates):
+        selected = random.integers(0, len(values), size=len(values))
+        bootstrap[replicate] = np.concatenate([values[index] for index in selected]).mean()
+    return tuple(float(value) for value in np.quantile(bootstrap, [0.025, 0.975]))
+
+
+def holm_adjust(p_values: np.ndarray) -> np.ndarray:
+    order = np.argsort(p_values)
+    adjusted = np.empty(len(p_values), dtype=float)
+    running_max = 0.0
+    for rank, index in enumerate(order):
+        running_max = max(running_max, (len(p_values) - rank) * p_values[index])
+        adjusted[index] = min(running_max, 1.0)
+    return adjusted
+
+
+def summarize_scores(
+    rows: list[dict[str, object]], replicates: int, seed: int
+) -> list[dict[str, object]]:
     output: list[dict[str, object]] = []
-    for estimator in rq2.ESTIMATORS:
+    for estimator_index, estimator in enumerate(rq2.ESTIMATORS):
         for horizon in HORIZONS:
-            selected = [
-                float(row["brier_score"])
+            selected_rows = [
+                row
                 for row in rows
                 if row["estimator"] == estimator and row["horizon_h"] == horizon
             ]
+            selected = [float(row["brier_score"]) for row in selected_rows]
+            ci_low, ci_high = cluster_bootstrap_ci(
+                selected_rows, "brier_score", replicates, seed + estimator_index * 1000 + horizon
+            )
             output.append(
                 {
                     "marker": rq2.MARKER,
                     "estimator": estimator,
                     "horizon_h": horizon,
                     "brier_score": float(np.mean(selected)),
+                    "ci95_low": ci_low,
+                    "ci95_high": ci_high,
                     "verifying_cases": len(selected),
                 }
             )
+    return output
+
+
+def paired_brier_tests(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    output: list[dict[str, object]] = []
+    comparisons = (
+        ("det - ens", "Deterministic mean-track"),
+        ("P90 - ens", "P90 envelope"),
+    )
+    for label, comparator in comparisons:
+        for horizon in HORIZONS:
+            selected = [row for row in rows if row["horizon_h"] == horizon]
+            by_case = defaultdict(dict)
+            for row in selected:
+                by_case[(row["cyclone_id"], row["forecast_time"])][row["estimator"]] = float(
+                    row["brier_score"]
+                )
+            storm_differences: dict[str, list[float]] = defaultdict(list)
+            cycle_differences: list[float] = []
+            for (cyclone_id, _), scores in by_case.items():
+                difference = scores[comparator] - scores["Ensemble probability-weighted"]
+                cycle_differences.append(difference)
+                storm_differences[cyclone_id].append(difference)
+            paired = np.asarray(
+                [np.mean(differences) for differences in storm_differences.values()], dtype=float
+            )
+            raw_p = (
+                1.0
+                if np.allclose(paired, 0)
+                else float(wilcoxon(paired, zero_method="wilcox", alternative="two-sided").pvalue)
+            )
+            output.append(
+                {
+                    "marker": rq2.MARKER,
+                    "comparison": label,
+                    "horizon_h": horizon,
+                    "mean_cycle_level_difference": float(np.mean(cycle_differences)),
+                    "mean_storm_level_difference": float(paired.mean()),
+                    "paired_cyclones": len(paired),
+                    "wilcoxon_raw_p": raw_p,
+                }
+            )
+    adjusted = holm_adjust(np.asarray([row["wilcoxon_raw_p"] for row in output]))
+    for row, adjusted_p in zip(output, adjusted):
+        row["holm_adjusted_p"] = float(adjusted_p)
+        row["ensemble_lower_brier_supported_0_05"] = bool(
+            adjusted_p < 0.05 and float(row["mean_storm_level_difference"]) > 0
+        )
     return output
 
 
@@ -175,6 +260,7 @@ def write_report(
     path: Path,
     scores: list[dict[str, object]],
     reliability: list[dict[str, object]],
+    tests: list[dict[str, object]],
     domain_half_size_deg: float,
 ) -> None:
     lookup = {
@@ -209,7 +295,7 @@ def write_report(
         f"Scores reuse the repository model configuration's pre-specified +/-{domain_half_size_deg:g}",
         "degree storm-centered crop, centered here on the verifying best-track position.",
         "A domain mean is computed",
-        "for each case and then cases are averaged, so unequal proxy-grid density does",
+        "for each case and then cases are averaged, so unequal grid density does",
         "not reweight cases. Lower Brier score is better.",
         "",
         "| Estimator | 6 h | 12 h | 24 h | 48 h | 72 h | 96 h |",
@@ -228,6 +314,15 @@ def write_report(
         lines.append(
             f"- {horizon} h: {winners[horizon]} is lowest; ensemble improvement is "
             f"{det_improvement:.2f}% over deterministic and {p90_improvement:.2f}% over P90."
+        )
+    lines.extend(["", "## Paired tests", ""])
+    for test in tests:
+        supported = "supported" if test["ensemble_lower_brier_supported_0_05"] else "not supported"
+        lines.append(
+            f"- {test['comparison']} at {test['horizon_h']} h: "
+            f"mean storm-level difference {float(test['mean_storm_level_difference']):+.6f}; "
+            f"raw p={float(test['wilcoxon_raw_p']):.6g}, "
+            f"Holm p={float(test['holm_adjusted_p']):.6g}; ensemble lower Brier {supported}."
         )
     lines.extend(
         [
@@ -270,24 +365,35 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--forecasts", type=Path, required=True)
     parser.add_argument("--corpus", type=Path, required=True)
-    parser.add_argument("--proxy-grid", type=Path, required=True)
+    parser.add_argument("--proxy-grid", type=Path)
+    parser.add_argument("--grid", type=Path)
+    parser.add_argument("--grid-kind", choices=("proxy", "real"), default="proxy")
+    parser.add_argument("--grid-metadata", type=Path)
+    parser.add_argument("--vulnerability-column", default="inform_risk")
     parser.add_argument("--case-output", type=Path, required=True)
     parser.add_argument("--table-output", type=Path, required=True)
     parser.add_argument("--reliability-output", type=Path, required=True)
     parser.add_argument("--metadata", type=Path, required=True)
     parser.add_argument("--report-output", type=Path, required=True)
+    parser.add_argument("--tests-output", type=Path)
     parser.add_argument("--impact-radius-km", type=float, default=25.0)
     parser.add_argument("--cone-buffer-km", type=float, default=25.0)
     parser.add_argument("--domain-half-size-deg", type=float, default=DOMAIN_HALF_SIZE_DEG)
+    parser.add_argument("--bootstrap-replicates", type=int, default=10_000)
+    parser.add_argument("--seed", type=int, default=20260817)
     args = parser.parse_args()
 
     rq2.HORIZONS = HORIZONS
+    rq2.MARKER = rq2.REAL_MARKER if args.grid_kind == "real" else rq2.MARKER
+    grid_path = args.grid or args.proxy_grid
+    if grid_path is None:
+        raise ValueError("Provide --grid for real data or --proxy-grid for proxy data")
     cases = rq2.load_cases(args.corpus)
     positions = rq2.load_positions(args.forecasts, set(cases))
     missing = set(cases) - positions.keys()
     if missing:
         raise ValueError(f"Missing ensemble positions for {len(missing)} cases")
-    grid = rq2.load_grid(args.proxy_grid)
+    grid = rq2.load_grid(grid_path, args.vulnerability_column)
     case_rows, reliability_values = evaluate_fields(
         cases,
         positions,
@@ -296,12 +402,15 @@ def main() -> None:
         args.cone_buffer_km,
         args.domain_half_size_deg,
     )
-    scores = summarize_scores(case_rows)
+    scores = summarize_scores(case_rows, args.bootstrap_replicates, args.seed)
+    tests = paired_brier_tests(case_rows)
     reliability = reliability_summary(reliability_values)
     write_csv(args.case_output, case_rows)
     write_csv(args.table_output, scores)
     write_csv(args.reliability_output, reliability)
-    write_report(args.report_output, scores, reliability, args.domain_half_size_deg)
+    if args.tests_output:
+        write_csv(args.tests_output, tests)
+    write_report(args.report_output, scores, reliability, tests, args.domain_half_size_deg)
     args.metadata.write_text(
         json.dumps(
             {
@@ -314,7 +423,14 @@ def main() -> None:
                 "domain_source": "model/track_pipeline_unified_X.py CFG.crop_deg",
                 "case_aggregation": "mean over domain cells, then unweighted mean over cases",
                 "reliability_bins": RELIABILITY_BINS,
-                "proxy_grid": str(args.proxy_grid),
+                "confidence_intervals": "cyclone cluster bootstrap of the mean",
+                "bootstrap_replicates": args.bootstrap_replicates,
+                "random_seed": args.seed,
+                "paired_inference": "cycle differences averaged within cyclone, two-sided Wilcoxon signed-rank",
+                "holm_family_size": 12,
+                "grid_kind": args.grid_kind,
+                "grid": str(grid_path),
+                "grid_metadata": str(args.grid_metadata) if args.grid_metadata else None,
                 "matched_cases": len(cases),
             },
             indent=2,

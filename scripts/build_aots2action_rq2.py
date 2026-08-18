@@ -20,6 +20,7 @@ HORIZONS = (24, 48, 72)
 ESTIMATORS = ("Deterministic mean-track", "P90 envelope", "Ensemble probability-weighted")
 TRACK_ALIASES = {"FUNGWONG": "FUNG-WONG", "WONG": "FUNG-WONG"}
 MARKER = "PROXY_ASSUMPTION_NOT_PUBLICATION_GRADE"
+REAL_MARKER = "REAL_HUMANITARIAN_GEOSPATIAL_DATA"
 
 
 def parse_time(value: str) -> datetime:
@@ -86,14 +87,17 @@ def load_positions(
     return positions
 
 
-def load_grid(path: Path) -> dict[str, np.ndarray]:
+def load_grid(path: Path, vulnerability_column: str = "inform_risk") -> dict[str, np.ndarray]:
     with path.open(newline="") as source:
         rows = list(csv.DictReader(source))
+    missing_columns = {"lat", "lon", "population", vulnerability_column} - set(rows[0])
+    if missing_columns:
+        raise ValueError(f"Grid {path} is missing columns: {sorted(missing_columns)}")
     return {
         "lat": np.array([float(row["lat"]) for row in rows]),
         "lon": np.array([float(row["lon"]) for row in rows]),
         "weight": np.array(
-            [float(row["population"]) * float(row["inform_risk"]) for row in rows]
+            [float(row["population"]) * float(row[vulnerability_column]) for row in rows]
         ),
     }
 
@@ -104,6 +108,7 @@ def evaluate_cases(
     grid: dict[str, np.ndarray],
     impact_radius_km: float,
     cone_buffer_km: float,
+    marker: str = MARKER,
 ) -> list[dict[str, object]]:
     output: list[dict[str, object]] = []
     for key, case in cases.items():
@@ -142,7 +147,7 @@ def evaluate_cases(
         for estimator, predicted in predictions.items():
             output.append(
                 {
-                    "marker": MARKER,
+                    "marker": marker,
                     "cyclone_id": case["cyclone_id"],
                     "forecast_time": case["forecast_time"].isoformat(sep=" "),
                     "horizon_h": case["horizon_h"],
@@ -306,10 +311,17 @@ def write_table_ii(
 
 
 def main() -> None:
+    global MARKER
+    global HORIZONS
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--forecasts", type=Path, required=True)
     parser.add_argument("--corpus", type=Path, required=True)
-    parser.add_argument("--proxy-grid", type=Path, required=True)
+    parser.add_argument("--proxy-grid", type=Path)
+    parser.add_argument("--grid", type=Path)
+    parser.add_argument("--grid-kind", choices=("proxy", "real"), default="proxy")
+    parser.add_argument("--grid-metadata", type=Path)
+    parser.add_argument("--vulnerability-column", default="inform_risk")
     parser.add_argument("--case-output", type=Path, required=True)
     parser.add_argument("--estimator-output", type=Path, required=True)
     parser.add_argument("--paired-output", type=Path, required=True)
@@ -320,16 +332,23 @@ def main() -> None:
     parser.add_argument("--cone-buffer-km", type=float, default=25.0)
     parser.add_argument("--bootstrap-replicates", type=int, default=10_000)
     parser.add_argument("--seed", type=int, default=20260817)
+    parser.add_argument("--horizons", default="24,48,72")
     args = parser.parse_args()
+
+    grid_path = args.grid or args.proxy_grid
+    if grid_path is None:
+        raise ValueError("Provide --grid for real data or --proxy-grid for proxy data")
+    MARKER = REAL_MARKER if args.grid_kind == "real" else MARKER
+    HORIZONS = tuple(int(value) for value in args.horizons.split(",") if value.strip())
 
     cases = load_cases(args.corpus)
     positions = load_positions(args.forecasts, set(cases))
     missing = set(cases) - positions.keys()
     if missing:
         raise ValueError(f"Missing ensemble positions for {len(missing)} cases")
-    grid = load_grid(args.proxy_grid)
+    grid = load_grid(grid_path, args.vulnerability_column)
     case_rows = evaluate_cases(
-        cases, positions, grid, args.impact_radius_km, args.cone_buffer_km
+        cases, positions, grid, args.impact_radius_km, args.cone_buffer_km, MARKER
     )
     estimator_rows = estimator_summary(
         case_rows, args.bootstrap_replicates, args.seed
@@ -371,8 +390,10 @@ def main() -> None:
                 "marker": MARKER,
                 "impact_radius_km_assumed": args.impact_radius_km,
                 "p90_cone_buffer_km_assumed": args.cone_buffer_km,
-                "proxy_grid": str(args.proxy_grid),
-                "vulnerability_weight": "population * inform_risk; proxy inform_risk=0.5",
+                "grid_kind": args.grid_kind,
+                "grid": str(grid_path),
+                "grid_metadata": str(args.grid_metadata) if args.grid_metadata else None,
+                "vulnerability_weight": f"population * {args.vulnerability_column}",
                 "p90_envelope_radius": "empirical P90 member-to-mean distance + cone buffer + impact radius",
                 "bootstrap": "cyclone cluster bootstrap; sampled cyclone contributes all cycles",
                 "bootstrap_replicates": args.bootstrap_replicates,

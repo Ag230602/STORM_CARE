@@ -1,0 +1,52 @@
+{
+  "cpu_model": "Apple M1 Pro",
+  "ram_gb": 16.0,
+  "operating_system": "macOS-26.5.2-arm64-arm-64bit",
+  "python_version": "3.9.6",
+  "numpy_version": "2.0.2",
+  "marker": "REAL_HUMANITARIAN_GEOSPATIAL_DATA",
+  "grid_kind": "real",
+  "output_suffix": "REAL",
+  "forecast_file": "../UNICEF_DATA/AOTS_DATA_SHARE (5).csv",
+  "corpus_file": "results_AOTS2Action/csv/table1_evaluation_corpus.csv",
+  "grid_file": "results_AOTS2Action/csv/humanitarian_grid_REAL.csv",
+  "grid_metadata": "results_AOTS2Action/csv/humanitarian_grid_REAL.metadata.json",
+  "horizons_h": [
+    24,
+    48,
+    72
+  ],
+  "repeats": 10,
+  "m_full": 51,
+  "m_values": [
+    "5",
+    "10",
+    "20",
+    "40",
+    "M_full"
+  ],
+  "n_x": 2863,
+  "x_sizes": [
+    286,
+    716,
+    1432,
+    2147,
+    2863
+  ],
+  "x_fractions": [
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    1.0
+  ],
+  "loaded_case_count": 502,
+  "eligible_case_count": 298,
+  "eligible_case_policy": "same cases for every configuration; require at least M_full members",
+  "runtime_scope": "per forecast case, derived from total eligible-case batch runtime / eligible_case_count",
+  "throughput_formula": "M * |X| / runtime_s",
+  "forecast_cycle_hours": 6.0,
+  "impact_radius_km": 25.0,
+  "cone_buffer_km": 25.0,
+  "random_seed": 20260817
+}

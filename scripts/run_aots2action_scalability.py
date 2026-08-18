@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the marked-proxy AOTS2Action scalability experiment.
+"""Run the AOTS2Action scalability experiment.
 
 The measured kernel is the RQ2 exposure-field computation: deterministic,
 P90-envelope, realized, and ensemble probability-weighted exposure over a
@@ -31,6 +31,7 @@ import psutil
 
 EARTH_RADIUS_KM = 6371.0
 MARKER = "PROXY_ASSUMPTION_NOT_PUBLICATION_GRADE"
+REAL_MARKER = "REAL_HUMANITARIAN_GEOSPATIAL_DATA"
 DEFAULT_HORIZONS = (24, 48, 72)
 DEFAULT_ENSEMBLE_SIZES = (5, 10, 20, 40)
 DEFAULT_SPATIAL_FRACTIONS = (0.10, 0.25, 0.50, 0.75, 1.00)
@@ -423,11 +424,11 @@ def write_report(
         [
             "",
             "Peak memory versus ensemble size:",
-            "- Peak RSS is dominated by the loaded Python process and proxy dataset. The measured peak is nearly flat across M because the implementation streams ensemble members over the grid instead of materializing an M x |X| distance matrix.",
+            f"- Peak RSS is dominated by the loaded Python process and {metadata['grid_kind']} dataset. The measured peak is nearly flat across M because the implementation streams ensemble members over the grid instead of materializing an M x |X| distance matrix.",
             "",
             "Throughput across all configurations:",
             f"- The global log-log runtime slope versus M*|X| is {global_slope['log_log_slope']:.3f} (R^2 {global_slope['r_squared']:.3f}).",
-            f"- Observed scaling is {'approximately consistent' if approximately_consistent else 'not cleanly consistent'} with O(M|X|) under the stated proxy-kernel protocol.",
+            f"- Observed scaling is {'approximately consistent' if approximately_consistent else 'not cleanly consistent'} with O(M|X|) under the stated {metadata['grid_kind']}-kernel protocol.",
             "",
             "## Largest Configuration",
             "",
@@ -441,14 +442,14 @@ def write_report(
             "",
             "## Figure-Ready Data",
             "",
-            "- Runtime vs M: `results_AOTS2Action/csv/rq4_runtime_vs_m_PROXY.csv`",
-            "- Runtime vs |X|: `results_AOTS2Action/csv/rq4_runtime_vs_x_PROXY.csv`",
-            "- Throughput: `results_AOTS2Action/csv/rq4_throughput_PROXY.csv`",
-            "- Peak memory: `results_AOTS2Action/csv/rq4_peak_memory_PROXY.csv`",
-            "- Raw repeated runs: `results_AOTS2Action/csv/rq4_scalability_raw_PROXY.csv`",
-            "- Slopes: `results_AOTS2Action/csv/rq4_scalability_slopes_PROXY.csv`",
+            f"- Runtime vs M: `results_AOTS2Action/csv/rq4_runtime_vs_m_{metadata['output_suffix']}.csv`",
+            f"- Runtime vs |X|: `results_AOTS2Action/csv/rq4_runtime_vs_x_{metadata['output_suffix']}.csv`",
+            f"- Throughput: `results_AOTS2Action/csv/rq4_throughput_{metadata['output_suffix']}.csv`",
+            f"- Peak memory: `results_AOTS2Action/csv/rq4_peak_memory_{metadata['output_suffix']}.csv`",
+            f"- Raw repeated runs: `results_AOTS2Action/csv/rq4_scalability_raw_{metadata['output_suffix']}.csv`",
+            f"- Slopes: `results_AOTS2Action/csv/rq4_scalability_slopes_{metadata['output_suffix']}.csv`",
             "",
-            "Do not state that scaling is linear beyond this measured proxy setting.",
+            f"Do not state that scaling is linear beyond this measured {metadata['grid_kind']} setting.",
         ]
     )
     path.write_text("\n".join(lines) + "\n")
@@ -489,10 +490,16 @@ def hardware_metadata() -> dict[str, object]:
 
 
 def main() -> None:
+    global MARKER
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--forecasts", type=Path, default=Path("../UNICEF_DATA/AOTS_DATA_SHARE (5).csv"))
     parser.add_argument("--corpus", type=Path, default=Path("results_AOTS2Action/csv/table1_evaluation_corpus.csv"))
     parser.add_argument("--proxy-grid", type=Path, default=Path("../UNICEF_DATA/outputs/proxy_external_grid_from_aots.csv"))
+    parser.add_argument("--grid", type=Path)
+    parser.add_argument("--grid-kind", choices=("proxy", "real"), default="proxy")
+    parser.add_argument("--grid-metadata", type=Path)
+    parser.add_argument("--output-suffix")
     parser.add_argument("--out-dir", type=Path, default=Path("results_AOTS2Action"))
     parser.add_argument("--repeats", type=int, default=10)
     parser.add_argument("--seed", type=int, default=20260817)
@@ -501,6 +508,12 @@ def main() -> None:
     parser.add_argument("--cone-buffer-km", type=float, default=25.0)
     parser.add_argument("--memory-sample-interval-s", type=float, default=0.0005)
     args = parser.parse_args()
+
+    grid_path = args.grid or args.proxy_grid
+    if grid_path is None:
+        raise ValueError("Provide --grid for real data or --proxy-grid for proxy data")
+    MARKER = REAL_MARKER if args.grid_kind == "real" else MARKER
+    output_suffix = args.output_suffix or ("REAL" if args.grid_kind == "real" else "PROXY")
 
     horizons = {int(value.strip()) for value in args.horizons.split(",") if value.strip()}
     cases_all = load_cases(args.corpus, horizons)
@@ -519,7 +532,7 @@ def main() -> None:
     if not cases:
         raise ValueError("No eligible cases have the full ensemble size.")
 
-    grid = load_grid(args.proxy_grid)
+    grid = load_grid(grid_path)
     n_x = len(grid["lat"])
     x_sizes = [max(1, int(round(fraction * n_x))) for fraction in DEFAULT_SPATIAL_FRACTIONS]
     x_sizes[-1] = n_x
@@ -552,9 +565,12 @@ def main() -> None:
     metadata = {
         **hardware_metadata(),
         "marker": MARKER,
+        "grid_kind": args.grid_kind,
+        "output_suffix": output_suffix,
         "forecast_file": str(args.forecasts),
         "corpus_file": str(args.corpus),
-        "proxy_grid_file": str(args.proxy_grid),
+        "grid_file": str(grid_path),
+        "grid_metadata": str(args.grid_metadata) if args.grid_metadata else None,
         "horizons_h": sorted(horizons),
         "repeats": args.repeats,
         "m_full": m_full,
@@ -575,30 +591,31 @@ def main() -> None:
 
     csv_dir = args.out_dir / "csv"
     table_dir = args.out_dir / "tables"
-    write_csv(csv_dir / "rq4_scalability_raw_PROXY.csv", raw_rows)
-    write_csv(table_dir / "rq4_scalability_results_PROXY.csv", summary_rows)
-    write_csv(csv_dir / "rq4_scalability_slopes_PROXY.csv", slopes)
+    write_csv(csv_dir / f"rq4_scalability_raw_{output_suffix}.csv", raw_rows)
+    write_csv(table_dir / f"rq4_scalability_results_{output_suffix}.csv", summary_rows)
+    write_csv(csv_dir / f"rq4_scalability_slopes_{output_suffix}.csv", slopes)
     write_csv(
-        csv_dir / "rq4_runtime_vs_m_PROXY.csv",
+        csv_dir / f"rq4_runtime_vs_m_{output_suffix}.csv",
         subset_columns(summary_rows, ["marker", "m_label", "m_size", "x_fraction", "x_size", "mean_runtime_s", "median_runtime_s", "runtime_std_s"]),
     )
     write_csv(
-        csv_dir / "rq4_runtime_vs_x_PROXY.csv",
+        csv_dir / f"rq4_runtime_vs_x_{output_suffix}.csv",
         subset_columns(summary_rows, ["marker", "m_label", "m_size", "x_fraction", "x_size", "mean_runtime_s", "median_runtime_s", "runtime_std_s"]),
     )
     write_csv(
-        csv_dir / "rq4_throughput_PROXY.csv",
+        csv_dir / f"rq4_throughput_{output_suffix}.csv",
         subset_columns(summary_rows, ["marker", "m_label", "m_size", "x_fraction", "x_size", "mean_throughput_items_per_s", "median_throughput_items_per_s"]),
     )
     write_csv(
-        csv_dir / "rq4_peak_memory_PROXY.csv",
+        csv_dir / f"rq4_peak_memory_{output_suffix}.csv",
         subset_columns(summary_rows, ["marker", "m_label", "m_size", "x_fraction", "x_size", "peak_memory_gb", "mean_peak_memory_gb"]),
     )
-    (csv_dir / "rq4_scalability_metadata_PROXY.json").write_text(json.dumps(metadata, indent=2) + "\n")
-    write_report(args.out_dir / "RQ4_SCALABILITY.md", summary_rows, slopes, metadata)
+    (csv_dir / f"rq4_scalability_metadata_{output_suffix}.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    report_name = "RQ4_SCALABILITY_REAL.md" if output_suffix == "REAL" else "RQ4_SCALABILITY.md"
+    write_report(args.out_dir / report_name, summary_rows, slopes, metadata)
 
-    print(f"Wrote {table_dir / 'rq4_scalability_results_PROXY.csv'}")
-    print(f"Wrote {args.out_dir / 'RQ4_SCALABILITY.md'}")
+    print(f"Wrote {table_dir / f'rq4_scalability_results_{output_suffix}.csv'}")
+    print(f"Wrote {args.out_dir / report_name}")
 
 
 if __name__ == "__main__":

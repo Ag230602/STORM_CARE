@@ -1,0 +1,38 @@
+{
+  "marker": "REAL_HUMANITARIAN_GEOSPATIAL_DATA",
+  "created_utc": "2026-08-18T16:27:04.283045+00:00",
+  "cyclone_grid_template": "AOTS-derived cyclone forecast grid harmonized to real geospatial sources",
+  "output_grid": "results_AOTS2Action/csv/humanitarian_grid_REAL.csv",
+  "horizons_h": [
+    6,
+    12,
+    24,
+    48,
+    72,
+    96
+  ],
+  "grid_cells_total": 2863,
+  "rq2_exposure_active_cells": 2192,
+  "worldpop_cells_cached_or_queried": 2192,
+  "worldpop_year": 2020,
+  "worldpop_resolution": "1km",
+  "worldpop_population_mode": "imageserver",
+  "worldpop_api": "https://worldpop.arcgis.com/arcgis/rest/services/WorldPop_Total_Population_1km/ImageServer/computeStatisticsHistograms",
+  "vulnerability": {
+    "source": "World Bank country income classification",
+    "api": "https://api.worldbank.org/v2/country?format=json&per_page=400",
+    "mapping": {
+      "LIC": 1.0,
+      "LMC": 0.75,
+      "UMC": 0.5,
+      "HIC": 0.25
+    },
+    "fallback_weight": 0.5
+  },
+  "administrative_boundaries": {
+    "source": "Natural Earth country boundaries via geo-countries",
+    "url": "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson",
+    "unassigned_or_ocean_grid_cells": 1990
+  },
+  "inactive_cell_population_policy": "Cells outside every RQ2 realized, deterministic, P90, and member footprint are set to zero population because they cannot affect exposure AE/signed/ratio; Brier scores are unweighted over grid cells."
+}

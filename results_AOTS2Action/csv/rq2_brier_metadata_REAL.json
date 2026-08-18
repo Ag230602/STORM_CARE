@@ -1,0 +1,27 @@
+{
+  "marker": "REAL_HUMANITARIAN_GEOSPATIAL_DATA",
+  "horizons_h": [
+    6,
+    12,
+    24,
+    48,
+    72,
+    96
+  ],
+  "impact_radius_km_assumed": 25.0,
+  "p90_cone_buffer_km_assumed": 25.0,
+  "domain": "square centered on verifying best-track position",
+  "domain_half_size_deg": 8.0,
+  "domain_source": "model/track_pipeline_unified_X.py CFG.crop_deg",
+  "case_aggregation": "mean over domain cells, then unweighted mean over cases",
+  "reliability_bins": 10,
+  "confidence_intervals": "cyclone cluster bootstrap of the mean",
+  "bootstrap_replicates": 10000,
+  "random_seed": 20260817,
+  "paired_inference": "cycle differences averaged within cyclone, two-sided Wilcoxon signed-rank",
+  "holm_family_size": 12,
+  "grid_kind": "real",
+  "grid": "results_AOTS2Action/csv/humanitarian_grid_REAL.csv",
+  "grid_metadata": "results_AOTS2Action/csv/humanitarian_grid_REAL.metadata.json",
+  "matched_cases": 1035
+}

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import warnings
 from collections import defaultdict
 from pathlib import Path
 
@@ -25,9 +26,12 @@ METRICS = (
 )
 
 
-def load_regional_grid(path: Path) -> dict[str, np.ndarray]:
+def load_regional_grid(path: Path, vulnerability_column: str = "inform_risk") -> dict[str, np.ndarray]:
     with path.open(newline="") as source:
         rows = list(csv.DictReader(source))
+    missing_columns = {"lat", "lon", "population", vulnerability_column, "region_id"} - set(rows[0])
+    if missing_columns:
+        raise ValueError(f"Grid {path} is missing columns: {sorted(missing_columns)}")
     region_ids = np.asarray([row["region_id"] for row in rows], dtype=object)
     unique_regions = np.asarray(sorted(set(region_ids)), dtype=object)
     region_lookup = {region: index for index, region in enumerate(unique_regions)}
@@ -35,7 +39,7 @@ def load_regional_grid(path: Path) -> dict[str, np.ndarray]:
         "lat": np.asarray([float(row["lat"]) for row in rows]),
         "lon": np.asarray([float(row["lon"]) for row in rows]),
         "weight": np.asarray(
-            [float(row["population"]) * float(row["inform_risk"]) for row in rows]
+            [float(row["population"]) * float(row[vulnerability_column]) for row in rows]
         ),
         "region_ids": unique_regions,
         "region_index": np.asarray([region_lookup[region] for region in region_ids]),
@@ -196,6 +200,8 @@ def storm_values(
 def bootstrap_mean_ci(
     values: dict[str, float], replicates: int, seed: int
 ) -> tuple[float, float, float]:
+    if not values:
+        return float("nan"), float("nan"), float("nan")
     ordered = np.asarray([values[storm] for storm in sorted(values)], dtype=float)
     random = np.random.default_rng(seed)
     indices = random.integers(0, len(ordered), size=(replicates, len(ordered)))
@@ -264,13 +270,22 @@ def headline_tests(
         mean, low, high = bootstrap_mean_ci(
             difference_values, replicates, seed + 20_000 + index
         )
-        raw_p = (
-            1.0
-            if np.allclose(differences, 0)
-            else float(
-                wilcoxon(differences, zero_method="wilcox", alternative="two-sided").pvalue
-            )
-        )
+        if len(differences) < 2 or np.allclose(differences, 0):
+            raw_p = 1.0
+        else:
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="Sample size too small for normal approximation.",
+                    category=UserWarning,
+                )
+                raw_p = float(
+                    wilcoxon(
+                        differences,
+                        zero_method="wilcox",
+                        alternative="two-sided",
+                    ).pvalue
+                )
         output.append(
             {
                 "marker": rq2.MARKER,
@@ -292,11 +307,17 @@ def headline_tests(
 
 
 def write_csv(path: Path, rows: list[dict[str, object]]) -> None:
+    def clean(value: object) -> object:
+        if isinstance(value, (float, np.floating)) and not np.isfinite(value):
+            return ""
+        return value
+
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="") as destination:
         writer = csv.DictWriter(destination, fieldnames=rows[0].keys())
         writer.writeheader()
-        writer.writerows(rows)
+        for row in rows:
+            writer.writerow({key: clean(value) for key, value in row.items()})
 
 
 def write_report(
@@ -304,20 +325,35 @@ def write_report(
     rows: list[dict[str, object]],
     summary: list[dict[str, object]],
     tests: list[dict[str, object]],
+    grid_kind: str,
 ) -> None:
     lookup = {
         (str(row["metric"]), str(row["estimator"]), int(row["horizon_h"])): row
         for row in summary
     }
+
+    def format_ci_cell(row: dict[str, object]) -> str:
+        mean = float(row["storm_level_mean"])
+        low = float(row["ci95_low"])
+        high = float(row["ci95_high"])
+        if not (np.isfinite(mean) and np.isfinite(low) and np.isfinite(high)):
+            return "NA (insufficient regions)"
+        return f"{mean:.4f} [{low:.4f}, {high:.4f}]"
+
     lines = [
         "# RQ3: regional-prioritization performance",
         "",
         f"Marker: **{rq2.MARKER}**",
         "",
         "Values are equal-weight storm means with 95% cyclone-bootstrap confidence",
-        "intervals (10,000 replicates; seed 20260817). Regions are proxy 10-degree",
-        "latitude/longitude bins. nDCG uses linear realized vulnerability-weighted",
-        "exposure gain. Zero-realized cases are excluded from nDCG and recall.",
+        "intervals (10,000 replicates; seed 20260817). nDCG uses linear realized",
+        "vulnerability-weighted exposure gain. Zero-realized cases are excluded from",
+        "nDCG and recall.",
+        (
+            "Regions are actual administrative units assigned during real-data harmonization."
+            if grid_kind == "real"
+            else "Regions are proxy 10-degree latitude/longitude bins."
+        ),
         "Spearman uses only the estimator-specific nonzero union and requires at least",
         "three regions.",
         "",
@@ -329,10 +365,7 @@ def write_report(
             cells = []
             for horizon in HORIZONS:
                 row = lookup[(metric, estimator, horizon)]
-                cells.append(
-                    f"{float(row['storm_level_mean']):.4f} "
-                    f"[{float(row['ci95_low']):.4f}, {float(row['ci95_high']):.4f}]"
-                )
+                cells.append(format_ci_cell(row))
             lines.append(f"| {metric} | {estimator} | " + " | ".join(cells) + " |")
 
     ensemble = lookup[("nDCG@10", "Ensemble probability-weighted", 48)]
@@ -377,7 +410,7 @@ def write_report(
             f"- Identified realized top-10 regions: {total_overlap}/{total_target} "
             f"({total_overlap / total_target:.2%}) across {len(eligible_recall)} eligible cases.",
             "",
-            "Because the 25 km footprint and coarse proxy regions usually produce fewer",
+            "Because the 25 km footprint and regional grid usually produce fewer",
             "than ten positive realized regions, the overlap denominator is the number of",
             "available positive regions up to ten, not ten artificial zero-relevance ties.",
         ]
@@ -389,7 +422,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--forecasts", type=Path, required=True)
     parser.add_argument("--corpus", type=Path, required=True)
-    parser.add_argument("--proxy-grid", type=Path, required=True)
+    parser.add_argument("--proxy-grid", type=Path)
+    parser.add_argument("--grid", type=Path)
+    parser.add_argument("--grid-kind", choices=("proxy", "real"), default="proxy")
+    parser.add_argument("--grid-metadata", type=Path)
+    parser.add_argument("--vulnerability-column", default="inform_risk")
     parser.add_argument("--case-output", type=Path, required=True)
     parser.add_argument("--summary-output", type=Path, required=True)
     parser.add_argument("--tests-output", type=Path, required=True)
@@ -401,13 +438,18 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=20260817)
     args = parser.parse_args()
 
+    grid_path = args.grid or args.proxy_grid
+    if grid_path is None:
+        raise ValueError("Provide --grid for real data or --proxy-grid for proxy data")
+
     rq2.HORIZONS = HORIZONS
+    rq2.MARKER = rq2.REAL_MARKER if args.grid_kind == "real" else rq2.MARKER
     cases = rq2.load_cases(args.corpus)
     positions = rq2.load_positions(args.forecasts, set(cases))
     missing = set(cases) - positions.keys()
     if missing:
         raise ValueError(f"Missing ensemble positions for {len(missing)} cases")
-    grid = load_regional_grid(args.proxy_grid)
+    grid = load_regional_grid(grid_path, args.vulnerability_column)
     case_rows = evaluate_cases(
         cases, positions, grid, args.impact_radius_km, args.cone_buffer_km
     )
@@ -416,7 +458,7 @@ def main() -> None:
     write_csv(args.case_output, case_rows)
     write_csv(args.summary_output, summary)
     write_csv(args.tests_output, tests)
-    write_report(args.report_output, case_rows, summary, tests)
+    write_report(args.report_output, case_rows, summary, tests, args.grid_kind)
     args.metadata.write_text(
         json.dumps(
             {
@@ -424,7 +466,12 @@ def main() -> None:
                 "horizons_h": list(HORIZONS),
                 "impact_radius_km_assumed": args.impact_radius_km,
                 "p90_cone_buffer_km_assumed": args.cone_buffer_km,
-                "proxy_region_definition": "10-degree latitude/longitude bins",
+                "grid_kind": args.grid_kind,
+                "grid": str(grid_path),
+                "grid_metadata": str(args.grid_metadata) if args.grid_metadata else None,
+                "region_definition": "administrative boundaries from harmonized grid"
+                if args.grid_kind == "real"
+                else "10-degree latitude/longitude bins",
                 "region_count": len(grid["region_ids"]),
                 "ndcg_gain": "linear realized vulnerability-weighted exposure",
                 "ranking_ties": "ascending region_id",
