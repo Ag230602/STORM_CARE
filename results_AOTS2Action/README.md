@@ -1,60 +1,139 @@
-# AOTS2Action — Results Output Folder (scaffold)
+# AOTS2Action Results Folder
 
-Status: **DATA INPUTS STILL REQUIRED — real-data harmonization workflow added.**
+Status: **FINAL REAL-DATA RQ2/RQ3/RQ4 DELIVERABLES AVAILABLE**
 
-This folder is reserved for the retrospective evaluation results supporting
-"AOTS2Action: Uncertainty-Aware Big Data Analytics for Humanitarian Cyclone
-Risk" (Adrija Ghosh, Yugyung Lee, IEEE Big Data 2026).
+This folder contains the final real-data outputs for the AOTS2Action
+humanitarian/geospatial reruns. The primary handoff bundle is:
 
-Update 2026-08-17: the manuscript was located at
-`~/Downloads/IEEE_BigData_2026_Storm.pdf` (outside this project directory,
-not in STORM_CARE). It has been read in full. `csv/placeholder_inventory.csv`
-in this folder is a verbatim extraction of every bracketed placeholder in
-the paper (Abstract through Conclusion), tagged by category:
+- `AOTS2Action_REAL_DELIVERABLES.zip`
+- `MANIFEST_REAL_DELIVERABLES.md`
+- `csv/manifest_real_deliverables.csv`
 
-- **A** = data/configuration placeholder, fixed before analysis (e.g.
-  ensemble source, N, basin, years, r0, r, base buffer b, J, N_X, the O1/O2
-  pre-registration choices, hardware specs)
-- **B** = computed result, produced by running the pipeline on real data
-- **C** = interpretive sentence, written only after B values exist
+The real-data outputs are marked with:
 
-None of the underlying datasets have been located. A broad filename search
-of `~/Downloads` (not just this repo) for IBTrACS/HURDAT/ATCF/GEFS/ECMWF/
-WorldPop/GHS-POP/ensemble/best-track found nothing besides the manuscript
-PDF itself. This working directory's own data (`your-repo/data/...
-weather_ensemble.csv`, `facility_svi.csv`, `data_cache/cb_2023_us_county_500k`)
-belongs to a different, unrelated project (STORM-CARE-FM) and is synthetic /
-not storm-track-indexed, so it cannot substitute for AOTS2Action's real
-ensemble-forecast and best-track inputs without violating the "no
-fabricated/estimated results" rule.
+`REAL_HUMANITARIAN_GEOSPATIAL_DATA`
 
-Still required before this folder can be populated with real numbers:
+## Exposure Radius and P90 Formulation
 
-- Ensemble forecast source (multi-member cyclone track forecasts, with
-  forecast-cycle/valid-time structure) — Sec. IV-A [ENSEMBLE SOURCE]
-- Best-track/observational source (IBTrACS / HURDAT2 / JTWC) — Sec. IV-A
-- Population dataset (e.g. WorldPop, GHS-POP)
-- Vulnerability dataset
-- Administrative-boundary dataset
-- Infrastructure dataset (optional per manuscript)
-- Pre-specified, frozen-before-analysis parameters: r0, r, base buffer b,
-  O1 (calibration tolerance), O2 (primary RQ1 representation), M subsample
-  policy, spatial-volume reduction method, workstation CPU/RAM/OS
+The implemented member-level exposure radius is:
 
-Added 2026-08-18: `scripts/build_real_humanitarian_grid.py` now creates a
-publication-grade RQ2/RQ3 grid from real population, vulnerability,
-administrative-boundary, and optional infrastructure layers, retaining source
-names/URLs in row columns and a metadata sidecar. `scripts/build_aots2action_rq2.py`
-and `scripts/build_aots2action_rq3.py` now accept `--grid-kind real` and mark
-those outputs as `REAL_HUMANITARIAN_GEOSPATIAL_DATA`. See
-`REAL_DATA_WORKFLOW.md` for commands and source notes.
+`r = 25.0 km`
 
-Final real-data handoff files:
+This same `impact_radius_km=25.0` is used for realized exposure, deterministic
+mean-track exposure, each ensemble-member exposure footprint, RQ2, RQ3, and
+RQ4.
 
-- `MANIFEST_REAL_DELIVERABLES.md` — verifier-facing index of real-data result files.
-- `csv/manifest_real_deliverables.csv` — machine-readable manifest with file sizes and SHA-256 hashes.
-- `config/real_rerun_settings.json` — configuration, data sources, horizons, tests, and rerun commands.
-- `tables/*_REAL.csv` — summary tables for real-data RQ2/RQ3/RQ4.
-- `csv/*_REAL.csv` and `csv/*_REAL.json` — case-level outputs, metadata, reliability bins, scalability diagnostics, and real-grid source data.
-- `figures/*_REAL.{png,pdf}` — manuscript-check plots for real-data RQ2/RQ3/RQ4.
-- `AOTS2Action_REAL_DELIVERABLES.zip` — portable bundle of the real-data reports, CSVs, tables, settings, and plots.
+The P90 exposure baseline uses:
+
+`q90(h) = empirical 90th percentile of member-to-ensemble-mean distances`
+
+`p90_radius = q90(h) + b`
+
+`P90 exposure mask = distance(grid cell, ensemble mean) <= p90_radius + r`
+
+Final constants:
+
+- `r = 25.0 km`
+- `b = 25.0 km`
+- implemented P90 threshold = `q90(h) + 50.0 km`
+
+So, if the manuscript defines `r0.9(h)` as ensemble-dispersion P90 only, the
+implemented formula is:
+
+`r0.9(h) + b + r`
+
+If the manuscript defines `r0.9(h)` as dispersion P90 plus the cone buffer, the
+implemented formula is:
+
+`r0.9(h) + r`
+
+## REAL Geospatial Dataset Details
+
+### Population
+
+- Source/name: WorldPop Total Population 1 km ArcGIS ImageServer
+- Year: 2020
+- Spatial resolution: 1 km native population raster
+- API endpoint:
+  `https://worldpop.arcgis.com/arcgis/rest/services/WorldPop_Total_Population_1km/ImageServer/computeStatisticsHistograms`
+- Harmonization: WorldPop population was queried as WGS84 (`wkid=4326`) envelope
+  statistics over each harmonized cyclone-grid cell.
+- Aggregation: population values are ImageServer sums over cyclone-grid cell
+  envelopes.
+- Final grid size: `2863` cyclone-grid cells.
+- RQ2-active cells queried/cached from WorldPop: `2192`.
+
+### Vulnerability / Socioeconomic Indicator
+
+- Source/name: World Bank country income classification.
+- API endpoint:
+  `https://api.worldbank.org/v2/country?format=json&per_page=400`
+- Administrative level: country.
+- Normalization/mapping to vulnerability weight:
+  - `LIC = 1.00`
+  - `LMC = 0.75`
+  - `UMC = 0.50`
+  - `HIC = 0.25`
+  - fallback / unclassified = `0.50`
+- Primary RQ2/RQ3 exposure weight:
+  `population * inform_risk`
+
+### Administrative Boundaries / Regions
+
+- Source/name: Natural Earth country boundaries via `datasets/geo-countries`.
+- Source URL:
+  `https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson`
+- Administrative level: country/territory.
+- Region identifier: ISO3-style `region_id`; unassigned/offshore cells use
+  `UNASSIGNED`.
+- RQ3 region count: `37`.
+- Spatial join/preprocessing:
+  - First assigns each cyclone-grid cell by point-in-polygon using the grid-cell
+    center.
+  - For coastal/offshore cells, falls back to cell-envelope intersection.
+  - Coordinates are handled in WGS84 longitude/latitude.
+- Unassigned/ocean cells after coastal-intersection assignment: `1990`.
+
+### Infrastructure
+
+- Included: yes.
+- Source/name:
+  - Natural Earth 1:10m airports, version 5.0.0
+  - Natural Earth 1:10m ports, version 5.0.0
+- Spatial type/resolution: global point vector layers, 1:10m scale.
+- Source files retained:
+  - `data/ne_10m_airports_REAL.geojson`
+  - `data/ne_10m_ports_REAL.geojson`
+- Features loaded:
+  - airports: `893`
+  - ports: `1081`
+- Harmonization/preprocessing:
+  - Airport and port points are counted within `100 km` of each harmonized
+    cyclone-grid cell center.
+  - Nearest airport and nearest port distances are retained in kilometers.
+  - `infrastructure_access_score = airport_count_100km + port_count_100km`
+  - `infrastructure_access_score_norm` is normalized by the maximum access score
+    observed in the final grid.
+- Note: infrastructure columns are retained as real spatial context and
+  provenance. They are not mixed into the primary RQ2/RQ3 exposure target, which
+  remains `population * inform_risk`.
+
+## Main Final Outputs
+
+- RQ2 report: `RQ2_EXPOSURE_EXPERIMENTS_REAL.md`
+- RQ2 bias report: `RQ2_BIAS_ANALYSIS_REAL.md`
+- RQ2 Brier report: `RQ2_BRIER_SCORES_REAL.md`
+- RQ3 report: `RQ3_REGIONAL_PRIORITIZATION_REAL.md`
+- RQ4 report: `RQ4_SCALABILITY_REAL.md`
+- Dataset details: `DATASET_EXPERIMENT_DETAILS_REAL.md`
+- Final settings/config: `config/real_rerun_settings.json`
+- Harmonized real grid: `csv/humanitarian_grid_REAL.csv`
+- Harmonized real-grid metadata: `csv/humanitarian_grid_REAL.metadata.json`
+
+## Summary Tables and Plots
+
+- `tables/*_REAL.csv` contains final summary tables for RQ2, RQ3, and RQ4.
+- `csv/*_REAL.csv` contains case-level and diagnostic outputs.
+- `figures/*_REAL.png` and `figures/*_REAL.pdf` contain manuscript-check plots.
+
+The manifest files list every deliverable and SHA-256 hash for verification.
