@@ -1,0 +1,15 @@
+artifact,bytes
+neurips_storm_world/results/figures/calibration.pdf,15583
+neurips_storm_world/results/figures/calibration.png,55378
+neurips_storm_world/results/figures/physics_residuals_full_vs_ablation.pdf,20898
+neurips_storm_world/results/figures/physics_residuals_full_vs_ablation.png,163730
+neurips_storm_world/results/figures/storm_world_architecture.svg,5631
+neurips_storm_world/results/tables/evacuation_adjacent_significance.csv,550
+neurips_storm_world/results/tables/evacuation_dose_response.csv,431
+neurips_storm_world/results/tables/intervention_fidelity_matrix.csv,2756
+neurips_storm_world/results/tables/physical_fidelity_ablation.csv,497
+neurips_storm_world/results/tables/policy_ranking_by_sequence.csv,1375
+neurips_storm_world/results/tables/policy_ranking_preservation.csv,866
+neurips_storm_world/results/tables/source_manifest.csv,942
+neurips_storm_world/results/tables/uncertainty_drift_by_horizon.csv,743
+neurips_storm_world/results/tables/workshop_evaluation_scorecard.csv,1171

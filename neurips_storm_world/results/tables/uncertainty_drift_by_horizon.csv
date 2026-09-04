@@ -1,0 +1,7 @@
+lead_time_h,p50_empirical_coverage,p90_empirical_coverage,p50_abs_error,p90_abs_error,interpretation,source
+6,0.5882,0.8908,0.0882,0.0092,short_horizon_calibrated,metrics/foundation/foundation_eval_metrics.csv
+12,0.5758,0.9134,0.0758,0.0134,short_horizon_calibrated,metrics/foundation/foundation_eval_metrics.csv
+24,0.4886,0.8858,0.0114,0.0142,short_horizon_calibrated,metrics/foundation/foundation_eval_metrics.csv
+48,0.4278,0.8454,0.0722,0.0546,short_horizon_calibrated,metrics/foundation/foundation_eval_metrics.csv
+72,0.3314,0.716,0.1686,0.184,long_horizon_uncertainty_drift,metrics/foundation/foundation_eval_metrics.csv
+120,0.2101,0.4874,0.2899,0.4126,long_horizon_uncertainty_drift,metrics/foundation/foundation_eval_metrics.csv

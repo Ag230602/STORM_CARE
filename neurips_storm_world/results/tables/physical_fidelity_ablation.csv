@@ -1,0 +1,3 @@
+variant,validation_track_rmse_normalized,weighted_validation_physics_loss,advection_residual,diffusion_residual,mass_residual,wind_pressure_residual,continuity_residual,energy_residual,source
+full_physics,0.02200221,6.13127586,4.68148e-05,0.0032064426,4.12309e-05,0.0001132734,0.003646086,0.0073728616,metrics/physics/physics_full_vs_ablation.csv
+no_physics,0.01934127,0.0,4.72538e-05,0.0145760048,5.92772e-05,0.0002285975,0.0043953065,0.0074684989,metrics/physics/physics_full_vs_ablation.csv

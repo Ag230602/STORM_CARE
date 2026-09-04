@@ -1,0 +1,6 @@
+dimension,headline_result,primary_artifact,workshop_use
+Predictive world fidelity,Use existing forecast/baseline tables; do not claim all-horizon superiority over Persistence.,tables/table1_track_error_vs_baselines.csv,"Background evidence, not the main novelty."
+Physical fidelity,Physics residuals are reported as full-vs-no-physics ablation.,neurips_storm_world/results/tables/physical_fidelity_ablation.csv,Supports physically grounded long-horizon rollout framing.
+Probabilistic fidelity,"P50/P90 coverage degrades at 72-120h, giving an uncertainty-drift story.",neurips_storm_world/results/tables/uncertainty_drift_by_horizon.csv,Shows why stochastic future worlds must be evaluated over horizon.
+Intervention consistency,"Macro consistency rate = 0.771; evacuation and intensity exposure signs are strongest, infrastructure channels fail.",neurips_storm_world/results/tables/intervention_fidelity_matrix.csv,New world-model-specific evaluation metric.
+Decision fidelity,"Evacuation ranking: Spearman = 0.975, Kendall tau = 0.958, pairwise accuracy = 0.979.",neurips_storm_world/results/tables/policy_ranking_preservation.csv,Strongest novelty-facing result.

@@ -1,0 +1,8 @@
+metric,value,interpretation
+aggregate_expected_order,earlier_evacuation_36h > earlier_evacuation_24h > earlier_evacuation > baseline > delayed_evacuation,Lower peak exposure is better; expected order runs best to worst.
+aggregate_observed_order,earlier_evacuation_36h > earlier_evacuation_24h > earlier_evacuation > baseline > delayed_evacuation,Observed mean peak-exposure order across 24 held-out sequences.
+mean_spearman_rank_correlation,0.975,Sequence-level correlation between predicted and expected evacuation order.
+mean_kendall_tau,0.958333,Sequence-level pairwise ranking consistency.
+top1_action_accuracy,0.875,21/24 sequences select 36h earlier evacuation as best.
+pairwise_intervention_ranking_accuracy,0.979167,235/240 pairwise comparisons match expected order.
+strict_full_order_accuracy,0.875,21/24 sequences match the full five-action order.

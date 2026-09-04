@@ -1,0 +1,5 @@
+scenario,mean_peak_exposure,ci95_lo,ci95_hi,source
+baseline,0.291496,0.28425,0.299046,metrics/counterfactual/dose_response_verdict.csv
+earlier_evacuation,0.283062,0.275433,0.291042,metrics/counterfactual/dose_response_verdict.csv
+earlier_evacuation_24h,0.278687,0.271475,0.286392,metrics/counterfactual/dose_response_verdict.csv
+earlier_evacuation_36h,0.275354,0.2689,0.282429,metrics/counterfactual/dose_response_verdict.csv

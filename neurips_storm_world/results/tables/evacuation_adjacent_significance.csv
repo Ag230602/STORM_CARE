@@ -1,0 +1,4 @@
+comparison,mean_delta,p_value,holm_p,significant_after_holm,source
+earlier_evacuation vs baseline,-0.00843333,9.080803230295557e-06,2.7242409690886672e-05,True,metrics/counterfactual/dose_response_adjacent_tests.csv
+earlier_evacuation_24h vs earlier_evacuation,-0.004375,1.0322674584977166e-05,2.7242409690886672e-05,True,metrics/counterfactual/dose_response_adjacent_tests.csv
+earlier_evacuation_36h vs earlier_evacuation_24h,-0.00333333,1.9207876973367007e-05,2.7242409690886672e-05,True,metrics/counterfactual/dose_response_adjacent_tests.csv

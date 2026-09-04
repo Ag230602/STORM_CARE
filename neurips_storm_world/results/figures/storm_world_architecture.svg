@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="720" viewBox="0 0 1320 720" role="img" aria-labelledby="title desc">
+  <title id="title">STORM-World action-conditioned world model architecture</title>
+  <desc id="desc">Observed storm-disaster world state is encoded into a latent state, branched by interventions, rolled forward through stochastic latent dynamics, and decoded into future risk and action rankings.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f2937"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-20%" width="130%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.16"/>
+    </filter>
+    <style>
+      .bg { fill: #f8fafc; }
+      .band { fill: #e0f2fe; opacity: 0.55; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; filter: url(#shadow); }
+      .box-blue { fill: #eff6ff; stroke: #2563eb; }
+      .box-green { fill: #ecfdf5; stroke: #059669; }
+      .box-amber { fill: #fffbeb; stroke: #d97706; }
+      .box-rose { fill: #fff1f2; stroke: #e11d48; }
+      .label { font-family: Arial, Helvetica, sans-serif; fill: #111827; font-size: 24px; font-weight: 700; }
+      .small { font-family: Arial, Helvetica, sans-serif; fill: #374151; font-size: 18px; }
+      .tiny { font-family: Arial, Helvetica, sans-serif; fill: #475569; font-size: 15px; }
+      .math { font-family: "Times New Roman", Times, serif; fill: #111827; font-size: 22px; font-style: italic; }
+      .arrow { stroke: #1f2937; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .branch { stroke: #475569; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+      .dash { stroke-dasharray: 8 7; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1320" height="720"/>
+  <rect class="band" x="0" y="0" width="1320" height="132"/>
+
+  <text x="60" y="58" class="label" style="font-size:32px">STORM-World: Physics-Informed, Intervention-Aware World Modeling</text>
+  <text x="60" y="95" class="small">From forecast accuracy to physically plausible, uncertainty-aware, action-conditioned storm futures</text>
+
+  <rect x="55" y="205" rx="8" ry="8" width="210" height="150" class="box box-blue"/>
+  <text x="88" y="248" class="label">Observed World</text>
+  <text x="94" y="286" class="math">W_t = {H_t, I_t, P_t, R_t}</text>
+  <text x="84" y="319" class="tiny">hazard, infrastructure,</text>
+  <text x="88" y="342" class="tiny">population, response</text>
+
+  <rect x="330" y="205" rx="8" ry="8" width="225" height="150" class="box box-green"/>
+  <text x="366" y="246" class="label">Physics Encoder</text>
+  <text x="380" y="286" class="math">z_t = E(W_t)</text>
+  <text x="365" y="319" class="tiny">graph/operator features</text>
+  <text x="368" y="342" class="tiny">with physical residuals</text>
+
+  <rect x="620" y="205" rx="8" ry="8" width="220" height="150" class="box"/>
+  <text x="662" y="246" class="label">Latent State</text>
+  <text x="675" y="286" class="math">z_t, h_t</text>
+  <text x="655" y="319" class="tiny">RSSM posterior warm-up</text>
+  <text x="668" y="342" class="tiny">common branch point</text>
+
+  <rect x="905" y="80" rx="8" ry="8" width="245" height="88" class="box box-amber"/>
+  <text x="932" y="116" class="label" style="font-size:21px">Exogenous Forcing</text>
+  <text x="958" y="148" class="math">c_t</text>
+  <text x="991" y="148" class="tiny">storm/system perturbations</text>
+
+  <rect x="900" y="215" rx="8" ry="8" width="250" height="130" class="box box-amber"/>
+  <text x="946" y="253" class="label">Action Branches</text>
+  <text x="932" y="288" class="small">no action, evac -12h,</text>
+  <text x="930" y="314" class="small">evac -24h, evac -36h</text>
+
+  <rect x="900" y="420" rx="8" ry="8" width="250" height="150" class="box box-rose"/>
+  <text x="934" y="461" class="label">Imagined Futures</text>
+  <text x="920" y="501" class="math">p(W_{t+1:t+H} | W_t, a, c)</text>
+  <text x="934" y="534" class="tiny">stochastic open-loop rollouts</text>
+  <text x="956" y="557" class="tiny">decoded future worlds</text>
+
+  <rect x="1185" y="420" rx="8" ry="8" width="95" height="150" class="box box-green"/>
+  <text x="1209" y="461" class="label" style="font-size:20px">Risk</text>
+  <text x="1202" y="493" class="label" style="font-size:20px">Rank</text>
+  <text x="1210" y="526" class="tiny">exposure</text>
+  <text x="1205" y="548" class="tiny">regret</text>
+
+  <line x1="265" y1="280" x2="330" y2="280" class="arrow"/>
+  <line x1="555" y1="280" x2="620" y2="280" class="arrow"/>
+  <line x1="840" y1="280" x2="900" y2="280" class="arrow"/>
+  <line x1="1025" y1="345" x2="1025" y2="420" class="arrow"/>
+  <line x1="1150" y1="495" x2="1185" y2="495" class="arrow"/>
+  <line x1="1025" y1="168" x2="1025" y2="215" class="arrow dash"/>
+
+  <path d="M 730 355 C 730 610, 890 635, 1025 570" class="branch dash"/>
+  <text x="604" y="640" class="tiny">All branches start from the same observed warm-up state.</text>
+
+  <text x="74" y="438" class="label" style="font-size:20px">Workshop evaluation</text>
+  <text x="74" y="475" class="small">Predictive fidelity: rollout error by horizon</text>
+  <text x="74" y="506" class="small">Physical fidelity: residual growth and drift</text>
+  <text x="74" y="537" class="small">Probabilistic fidelity: coverage, sharpness, diversity</text>
+  <text x="74" y="568" class="small">Intervention fidelity: sign consistency and failure audit</text>
+  <text x="74" y="599" class="small">Decision fidelity: ranking preservation and regret</text>
+</svg>
