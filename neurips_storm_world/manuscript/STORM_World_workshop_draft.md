@@ -85,11 +85,11 @@ The current implementation uses branch-state interventions rather than direct ed
 
 We evaluate five dimensions.
 
-Predictive world fidelity measures whether rollouts remain accurate as horizon increases. Existing forecast/baseline tables should be used carefully: current results do not support an all-horizon superiority claim over Persistence.
+Predictive world fidelity measures whether rollouts remain accurate as horizon increases. Existing forecast/baseline tables should be used carefully: current results do not support an all-horizon superiority claim over Persistence. The workshop package also includes a lightweight RSSM rollout-versus-horizon analysis in `neurips_storm_world/results/tables/rollout_fidelity_vs_horizon.csv`.
 
-Physical fidelity measures whether physics-informed learning reduces implausible dynamics. The workshop package reports the full-vs-no-physics residual table in `neurips_storm_world/results/tables/physical_fidelity_ablation.csv`.
+Physical fidelity measures whether physics-informed learning reduces implausible dynamics. The workshop package reports the full-vs-no-physics residual table in `neurips_storm_world/results/tables/physical_fidelity_ablation.csv` and a horizon-indexed disaster-state consistency proxy in `neurips_storm_world/results/tables/physics_consistency_vs_rollout_horizon.csv`.
 
-Probabilistic fidelity measures uncertainty quality over horizon. The package reports P50/P90 coverage drift in `neurips_storm_world/results/tables/uncertainty_drift_by_horizon.csv`.
+Probabilistic fidelity measures uncertainty quality over horizon. The package reports P50/P90 coverage drift in `neurips_storm_world/results/tables/uncertainty_drift_by_horizon.csv` and stochastic rollout coverage/sharpness in `neurips_storm_world/results/tables/stochastic_rollout_coverage_sharpness.csv`.
 
 Intervention fidelity measures whether action-conditioned rollouts change in the expected direction. We define intervention consistency:
 
@@ -100,6 +100,8 @@ C(a) = (1 / N) sum_i 1[sign(Delta_i^a) = s_a]
 where `s_a` is the expected sign of the intervention effect.
 
 Decision fidelity measures whether the world model preserves action rankings. For an intervention family, a useful model should choose and rank policies similarly to a reference ordering even if state prediction is imperfect.
+
+The package includes two additional workshop ablations. First, `neurips_storm_world/results/tables/world_model_vs_direct_predictor.csv` compares the RSSM rollout to direct persistence and linear extrapolation predictors. Second, `neurips_storm_world/results/tables/intervention_conditioning_ablation.csv` removes branch-state conditioning by reusing the baseline warm-up state for all intervention labels.
 
 ## 6. Results
 
@@ -151,7 +153,13 @@ This failure audit should be framed as a scientific contribution. The current mo
 
 The physics table in `neurips_storm_world/results/tables/physical_fidelity_ablation.csv` reports residual components for the full physics model and no-physics ablation. Use this to support the claim that physical grounding is measured directly, not assumed from forecast accuracy.
 
-The uncertainty table in `neurips_storm_world/results/tables/uncertainty_drift_by_horizon.csv` shows that calibration is stronger at short horizons and degrades at 72-120 h. This should be described as long-horizon world-model uncertainty drift.
+The horizon consistency table in `neurips_storm_world/results/tables/physics_consistency_vs_rollout_horizon.csv` adds rollout-step diagnostics for boundedness, monotonic infrastructure damage, resource-replenishment violations, temporal continuity, and exposure-hazard consistency. These are normalized disaster-state consistency proxies, not full ERA5/PDE residuals.
+
+The uncertainty table in `neurips_storm_world/results/tables/uncertainty_drift_by_horizon.csv` shows that calibration is stronger at short horizons and degrades at 72-120 h. This should be described as long-horizon world-model uncertainty drift. The stochastic rollout table in `neurips_storm_world/results/tables/deterministic_vs_stochastic_rollout.csv` compares the deterministic RSSM mean path against stochastic sample-mean futures.
+
+### 6.5 AOTS2Action Bridge
+
+The file `neurips_storm_world/results/tables/aots2action_bridge_summary.csv` summarizes real-geospatial AOTS2Action exposure, Brier, and regional ranking results for the ensemble probability-weighted estimator. This should be used as bridge evidence that a downstream real-geospatial evaluator exists. It should not be described as a fully coupled STORM-World rollout-to-geospatial intervention experiment unless that coupling is implemented later.
 
 ## 7. Discussion and Limitations
 
@@ -162,4 +170,3 @@ The current checkpoint is demo-scale, so effect magnitudes should be interpreted
 ## 8. Conclusion
 
 STORM-World uses tropical cyclones as a physical-AI testbed for a broader world-model question: can a learned physical model imagine alternative futures that remain plausible, uncertainty-aware, controllable, and useful for decisions? The current evidence supports a careful answer. Evacuation timing produces coherent dose-response and strong ranking preservation; several other interventions fail. This combination makes the paper a contribution to world-model evaluation rather than another hurricane-forecasting paper.
-

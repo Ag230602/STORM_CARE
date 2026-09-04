@@ -1,0 +1,13 @@
+horizon_step,lead_time_h,p50_empirical_coverage,p90_empirical_coverage,p50_sharpness_mean_width,p90_sharpness_mean_width,n_sequences,n_samples,sample_scope
+1,6,0.376302,0.634115,0.091581,0.213415,24,20,RSSM stochastic rollout samples over synthetic held-out extension
+2,12,0.371094,0.571615,0.094826,0.224489,24,20,RSSM stochastic rollout samples over synthetic held-out extension
+3,18,0.367188,0.596354,0.100163,0.232231,24,20,RSSM stochastic rollout samples over synthetic held-out extension
+4,24,0.334635,0.582031,0.102824,0.234926,24,20,RSSM stochastic rollout samples over synthetic held-out extension
+5,30,0.282552,0.486979,0.109351,0.244554,24,20,RSSM stochastic rollout samples over synthetic held-out extension
+6,36,0.248698,0.501302,0.1084,0.247593,24,20,RSSM stochastic rollout samples over synthetic held-out extension
+7,42,0.264323,0.50651,0.106998,0.248092,24,20,RSSM stochastic rollout samples over synthetic held-out extension
+8,48,0.266927,0.514323,0.110661,0.245636,24,20,RSSM stochastic rollout samples over synthetic held-out extension
+9,54,0.205729,0.454427,0.110413,0.246082,24,20,RSSM stochastic rollout samples over synthetic held-out extension
+10,60,0.140625,0.385417,0.10941,0.244908,24,20,RSSM stochastic rollout samples over synthetic held-out extension
+11,66,0.140625,0.356771,0.111066,0.247933,24,20,RSSM stochastic rollout samples over synthetic held-out extension
+12,72,0.084635,0.295573,0.109747,0.250596,24,20,RSSM stochastic rollout samples over synthetic held-out extension

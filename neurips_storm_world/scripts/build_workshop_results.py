@@ -456,6 +456,30 @@ def build_scorecard(metrics: dict[str, float]) -> None:
             "primary_artifact": "neurips_storm_world/results/tables/policy_ranking_preservation.csv",
             "workshop_use": "Strongest novelty-facing result.",
         },
+        {
+            "dimension": "Rollout horizon fidelity",
+            "headline_result": "Additional script reports RSSM rollout error versus lead time and compares it against direct persistence/linear predictors.",
+            "primary_artifact": "neurips_storm_world/results/tables/rollout_fidelity_vs_horizon.csv",
+            "workshop_use": "Addresses world-model/direct-predictor guideline item.",
+        },
+        {
+            "dimension": "Stochastic future modeling",
+            "headline_result": "Additional script compares deterministic RSSM mean-path rollouts with stochastic sample-mean rollouts and reports coverage/sharpness.",
+            "primary_artifact": "neurips_storm_world/results/tables/deterministic_vs_stochastic_rollout.csv",
+            "workshop_use": "Addresses deterministic-vs-stochastic rollout guideline item.",
+        },
+        {
+            "dimension": "Intervention-conditioning ablation",
+            "headline_result": "Additional script removes branch-state conditioning by reusing baseline warm-up states for all intervention labels.",
+            "primary_artifact": "neurips_storm_world/results/tables/intervention_conditioning_ablation.csv",
+            "workshop_use": "Tests whether intervention responses require the branch intervention.",
+        },
+        {
+            "dimension": "AOTS2Action bridge",
+            "headline_result": "Additional script summarizes real-geospatial AOTS exposure/ranking metrics as a downstream evaluator bridge.",
+            "primary_artifact": "neurips_storm_world/results/tables/aots2action_bridge_summary.csv",
+            "workshop_use": "Useful bridge evidence, but not a full STORM rollout-to-geospatial integration.",
+        },
     ]
     write_csv(TABLES / "workshop_evaluation_scorecard.csv", rows)
 

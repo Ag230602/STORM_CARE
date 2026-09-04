@@ -1,0 +1,11 @@
+comparison,metric,rssm_stochastic_mean,direct_predictor,relative_change_pct,horizon_h,direct_predictor_definition
+rssm_stochastic_mean_vs_direct_persistence,state_mse,0.03322016,0.06349054,-47.677,72,direct_persistence
+rssm_stochastic_mean_vs_direct_persistence,hazard_mse,0.08283782,0.15374494,-46.12,72,direct_persistence
+rssm_stochastic_mean_vs_direct_persistence,infra_mse,0.01006753,0.01933792,-47.9389,72,direct_persistence
+rssm_stochastic_mean_vs_direct_persistence,exposure_mse,0.03146812,0.05069331,-37.9245,72,direct_persistence
+rssm_stochastic_mean_vs_direct_persistence,resource_mse,0.00844706,0.03018599,-72.0166,72,direct_persistence
+rssm_stochastic_mean_vs_direct_linear_extrapolation,state_mse,0.03322016,0.14044568,-76.3466,72,direct_linear_extrapolation
+rssm_stochastic_mean_vs_direct_linear_extrapolation,hazard_mse,0.08283782,0.274268,-69.7968,72,direct_linear_extrapolation
+rssm_stochastic_mean_vs_direct_linear_extrapolation,infra_mse,0.01006753,0.00982345,2.4847,72,direct_linear_extrapolation
+rssm_stochastic_mean_vs_direct_linear_extrapolation,exposure_mse,0.03146812,0.26240382,-88.0078,72,direct_linear_extrapolation
+rssm_stochastic_mean_vs_direct_linear_extrapolation,resource_mse,0.00844706,0.01528748,-44.7452,72,direct_linear_extrapolation

@@ -44,10 +44,19 @@ neurips_storm_world/
       evacuation_dose_response.csv
       evacuation_adjacent_significance.csv
       physical_fidelity_ablation.csv
+      physics_consistency_vs_rollout_horizon.csv
+      rollout_fidelity_vs_horizon.csv
+      deterministic_vs_stochastic_rollout.csv
+      stochastic_rollout_coverage_sharpness.csv
+      world_model_vs_direct_predictor.csv
+      intervention_conditioning_ablation.csv
+      aots2action_bridge_summary.csv
+      remaining_guideline_feasibility_status.csv
       uncertainty_drift_by_horizon.csv
       source_manifest.csv
   scripts/
     build_workshop_results.py
+    build_additional_workshop_experiments.py
 ```
 
 ## Strongest Result To Lead With
@@ -88,9 +97,30 @@ From the repository root:
 
 ```bash
 python3 neurips_storm_world/scripts/build_workshop_results.py
+python3 neurips_storm_world/scripts/build_additional_workshop_experiments.py
+python3 neurips_storm_world/scripts/build_workshop_results.py
 ```
 
-The script reads existing frozen artifacts under `metrics/`, `tables/`, and `figures/`, then writes workshop-specific outputs under `neurips_storm_world/results/`.
+The first script reads existing frozen artifacts under `metrics/`, `tables/`, and `figures/`, then writes workshop-specific outputs under `neurips_storm_world/results/`. The additional experiment script adds lightweight horizon, stochasticity, direct-predictor, intervention-conditioning, and AOTS bridge analyses without overwriting the main STORM-CARE checkpoint.
+
+## Guideline Coverage
+
+Added after the initial package:
+
+- physics consistency versus rollout horizon: `results/tables/physics_consistency_vs_rollout_horizon.csv`
+- rollout error versus horizon: `results/tables/rollout_fidelity_vs_horizon.csv`
+- deterministic versus stochastic rollout: `results/tables/deterministic_vs_stochastic_rollout.csv`
+- stochastic coverage and sharpness: `results/tables/stochastic_rollout_coverage_sharpness.csv`
+- world model versus direct predictors: `results/tables/world_model_vs_direct_predictor.csv`
+- branch-state intervention-conditioning ablation: `results/tables/intervention_conditioning_ablation.csv`
+- AOTS2Action real-geospatial bridge summary: `results/tables/aots2action_bridge_summary.csv`
+
+Still not fully completed:
+
+- larger world-model training scale;
+- repairing weak intervention channels;
+- true multi-basin evaluation;
+- full STORM-World rollout tensors coupled into AOTS2Action's real geospatial exposure pipeline.
 
 ## Writing Instructions
 
@@ -111,4 +141,3 @@ Avoid these claims unless new causal identification experiments are added:
 - the model estimates real-world causal evacuation effects;
 - all interventions work;
 - STORM-World beats persistence or operational baselines at all forecast horizons.
-

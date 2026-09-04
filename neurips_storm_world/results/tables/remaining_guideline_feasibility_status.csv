@@ -1,0 +1,9 @@
+guideline_item,status_after_this_script,artifact,caveat
+Physics consistency versus rollout horizon,done_as_proxy,neurips_storm_world/results/tables/physics_consistency_vs_rollout_horizon.csv,"Uses normalized disaster-state consistency proxies, not full ERA5/PDE residuals."
+AOTS2Action integration,partial_bridge_done,neurips_storm_world/results/tables/aots2action_bridge_summary.csv,Full STORM rollout-to-real-geospatial exposure coupling remains future work.
+World model versus direct predictor,done_lightweight,neurips_storm_world/results/tables/world_model_vs_direct_predictor.csv,"Direct predictors are persistence and linear extrapolation, not retrained neural direct heads."
+Deterministic versus stochastic rollout,done,neurips_storm_world/results/tables/deterministic_vs_stochastic_rollout.csv,Uses deterministic RSSM mean path versus stochastic sample mean on synthetic held-out extension.
+Explicit ablation removing intervention conditioning,done_branch_ablation,neurips_storm_world/results/tables/intervention_conditioning_ablation.csv,Removes branch-state conditioning; a learned action-vector ablation would require architecture changes.
+Larger world-model training scale,not_run,,Requires a separate training run and should be compared honestly against the frozen demo checkpoint.
+Repair weak intervention channels,not_done,,Should not be forced by hand; requires better data/training or explicit action supervision.
+Multi-basin evaluation,not_done,,Requires IBTrACS/multi-basin configuration and new evaluation protocol.
